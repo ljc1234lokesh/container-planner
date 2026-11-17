@@ -389,13 +389,25 @@
     camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h,false);
   }
   function clearGroup(group) {
-    while(group.children.length) {
-      const obj=group.children.pop();
-      obj.traverse(o=>{if(o.geometry)o.geometry.dispose(); if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());}});
+    // Safe when WebGL has not initialized (for example, a browser with WebGL disabled).
+    if (!group || !Array.isArray(group.children)) return;
+    while (group.children.length) {
+      const obj = group.children[0];
+      group.remove(obj); // Keep Three.js parent/child references in sync.
+      if (obj && typeof obj.traverse === "function") {
+        obj.traverse(o => {
+          if (o.geometry && typeof o.geometry.dispose === "function") o.geometry.dispose();
+          if (o.material) {
+            (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
+              if (m && typeof m.dispose === "function") m.dispose();
+            });
+          }
+        });
+      }
     }
   }
   function rebuildScene() {
-    if(!scene)return;
+    if (!scene || !containerGroup || !boxGroup || !controls || !camera) return;
     clearGroup(containerGroup); clearGroup(boxGroup);
     const c=getContainer(), L=c.length,W=c.width,H=c.height;
     const floor=new THREE.Mesh(new THREE.BoxGeometry(L,.025,W),new THREE.MeshStandardMaterial({color:0x64748b,transparent:true,opacity:.22,roughness:.9}));
@@ -418,6 +430,7 @@
     if(packedBoxes.length) drawBoxes();
   }
   function drawBoxes() {
+    if (!boxGroup) return;
     const visible = currentStep===-2 ? packedBoxes : currentStep===-1 ? [] : packedBoxes.filter(b=>steps[currentStep] && steps[currentStep].boxes.includes(b));
     visible.forEach((b,index)=>{
       const color = validColor(b.color) || colorFor(b.skuIndex);
@@ -483,7 +496,13 @@
     if(controls)controls.update();
     if(renderer&&scene&&camera)renderer.render(scene,camera);
   }
-  init3D();
+  try {
+    init3D();
+  } catch (err) {
+    console.error("3D initialization failed:", err);
+    $("loadingOverlay").textContent = "3D view unavailable in this browser. Packing calculations can still run; enable WebGL or try Chrome.";
+    $("loadingOverlay").style.display = "flex";
+  }
   updateContainerLabels();
 })();
 </script>
