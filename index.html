@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Container Stuffing Planner - Step by Step</title>
+    <title>3D Container Stuffing Planner</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -80,7 +80,7 @@
                 </button>
             </section>
 
-            <!-- NEW: Step-by-Step Playback Controls -->
+            <!-- Step-by-Step Playback Controls -->
             <section id="playback-controls" class="mt-2 bg-blue-50 p-4 rounded-lg border border-blue-200 hidden pb-6">
                 <h2 class="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2 text-center">3D Loading Sequence</h2>
                 
@@ -106,8 +106,9 @@
 
     <!-- 3D Visualization Area -->
     <main class="flex-1 relative h-full w-full" id="canvas-container">
-        <div class="absolute top-4 left-4 text-white/60 text-xs md:text-sm pointer-events-none z-10 bg-black/40 px-3 py-1.5 rounded backdrop-blur-sm shadow-sm border border-white/10">
-            Touch/Left Click: Rotate | Right Click: Pan | Scroll/Pinch: Zoom
+        <!-- Bright High-Contrast Instructions Box -->
+        <div class="absolute top-4 left-4 text-white text-xs md:text-sm font-semibold pointer-events-none z-10 bg-gray-900/90 px-3.5 py-2 rounded-lg shadow-lg border border-blue-500/50">
+            💡 <span class="text-blue-400">Controls:</span> Touch/Left Click: Rotate | Right Click: Pan | Scroll/Pinch: Zoom
         </div>
     </main>
 
@@ -117,7 +118,6 @@
         let globalPackedBoxes = [];
         let boxIdCounter = 0;
         
-        // Step-by-Step Variables
         let currentStep = 0;
         let totalSteps = 0;
         let stepDataMap = {};
@@ -133,7 +133,8 @@
         function initThreeJS() {
             const container = document.getElementById('canvas-container');
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x111827);
+            // Lighter soft slate background so the container and boxes pop out clearly
+            scene.background = new THREE.Color(0x1e293b); 
 
             camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
             camera.position.set(30, 20, 35);
@@ -148,15 +149,15 @@
             controls.dampingFactor = 0.05;
             controls.target.set(0, 0, 0);
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
             scene.add(ambientLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
-            dirLight.position.set(10, 20, 10);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(15, 25, 15);
             scene.add(dirLight);
             
-            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
-            dirLight2.position.set(-10, 10, -10);
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight2.position.set(-15, 15, -15);
             scene.add(dirLight2);
 
             boxGroup = new THREE.Group();
@@ -175,9 +176,9 @@
 
             const geo = new THREE.BoxGeometry(containerSize.w, containerSize.h, containerSize.d);
             const edges = new THREE.EdgesGeometry(geo);
-            containerMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, transparent: true, opacity: 0.6 }));
+            containerMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x60a5fa, linewidth: 3, transparent: true, opacity: 0.9 }));
             
-            const fillMat = new THREE.MeshBasicMaterial({ color: 0x374151, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+            const fillMat = new THREE.MeshBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.1, side: THREE.DoubleSide });
             containerMesh.add(new THREE.Mesh(geo, fillMat));
 
             scene.add(containerMesh);
@@ -192,7 +193,7 @@
         }
 
         function downloadTemplate() {
-            const template = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\\nStandard Box,50,40,30,20,#3b82f6\\nLarge Box,100,50,50,10,#10b981\\nPallet Base,120,100,15,5,#f59e0b";
+            const template = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\nStandard Box,50,40,30,20,#3b82f6\nLarge Box,100,50,50,10,#10b981\nPallet Base,120,100,15,5,#f59e0b";
             const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
@@ -249,7 +250,6 @@
             });
         }
 
-        // Space and Math Helpers
         function intersects(fs, B) { return !( B.x >= fs.x + fs.w - 0.001 || B.x + B.w <= fs.x + 0.001 || B.y >= fs.y + fs.h - 0.001 || B.y + B.h <= fs.y + 0.001 || B.z >= fs.z + fs.d - 0.001 || B.z + B.d <= fs.z + 0.001 ); }
         function splitSpace(fs, B) {
             let s = [];
@@ -325,7 +325,6 @@
                 } else { overflowCount++; }
             }
 
-            // Generate Step Grouping exactly as in Tally Sheet
             stepDataMap = {};
             let step = 1;
             let currentGroup = null;
@@ -358,14 +357,13 @@
             if (packedCount > 0) {
                 document.getElementById('download-tally-btn').classList.remove('hidden');
                 document.getElementById('playback-controls').classList.remove('hidden');
-                updateStepVisualization(); // Show initial state
+                updateStepVisualization();
             }
 
             if (overflowCount > 0) showMessage(`Packed ${packedCount} items. ${overflowCount} overflowed!`, 'text-red-600 font-bold');
             else showMessage(`Success! All ${packedCount} items packed.`, 'text-green-600 font-bold');
         }
 
-        // Step-by-Step Navigation Functions
         function prevStep() {
             if (currentStep > 1) {
                 currentStep--;
@@ -386,7 +384,6 @@
         }
 
         function updateStepVisualization() {
-            // Update 3D visibility based on currentStep
             boxGroup.children.forEach(mesh => {
                 if (mesh.userData.step <= currentStep) {
                     mesh.visible = true;
@@ -395,7 +392,6 @@
                 }
             });
 
-            // Update UI Texts
             document.getElementById('step-indicator').innerText = `Step ${currentStep} / ${totalSteps}`;
             
             if (stepDataMap[currentStep]) {
@@ -409,10 +405,10 @@
         function downloadTallySheet() {
             if (Object.keys(stepDataMap).length === 0) return alert("No packed data available!");
 
-            let csvStr = "Step,Box Size (L x W x H cm),Quantity to Load,Color Code\\n";
+            let csvStr = "Step,Box Size (L x W x H cm),Quantity to Load,Color Code\n";
             for (let s = 1; s <= totalSteps; s++) {
                 let r = stepDataMap[s];
-                csvStr += `Step ${s},"${r.size}",${r.qty},${r.color}\\n`;
+                csvStr += `Step ${s},"${r.size}",${r.qty},${r.color}\n`;
             }
 
             const link = document.createElement("a");
@@ -430,12 +426,12 @@
 
         function clear3DBoxes() {
             while(boxGroup.children.length > 0){ 
-                const child = boxGroup.children[0];
-                boxGroup.remove(child); 
-                if(child.geometry) child.geometry.dispose();
-                if(child.material) {
-                    if(Array.isArray(child.material)) child.material.forEach(m => m.dispose());
-                    else child.material.dispose();
+                TheChild = boxGroup.children[0];
+                boxGroup.remove(TheChild); 
+                if(TheChild.geometry) TheChild.geometry.dispose();
+                if(TheChild.material) {
+                    if(Array.isArray(TheChild.material)) TheChild.material.forEach(m => m.dispose());
+                    else TheChild.material.dispose();
                 }
             }
             globalPackedBoxes = [];
@@ -450,13 +446,10 @@
             const mesh = new THREE.Mesh(geo, mat);
 
             const edges = new THREE.EdgesGeometry(geo);
-            mesh.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1, transparent: true, opacity: 0.2 })));
+            mesh.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1, transparent: true, opacity: 0.3 })));
 
             mesh.position.set(-containerSize.w / 2 + x + bd.w / 2, -containerSize.h / 2 + y + bd.h / 2, -containerSize.d / 2 + z + bd.d / 2);
-            
-            // Save the step number in the mesh so we can hide/show it later
             mesh.userData.step = stepNum; 
-            
             boxGroup.add(mesh);
         }
 
@@ -470,7 +463,7 @@
             const container = document.getElementById('canvas-container');
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setSize(container.clientWidth, container.centerX || container.clientHeight);
         }
 
         function animate() {
