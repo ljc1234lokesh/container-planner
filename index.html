@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Container Stuffing Planner</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #sidebar { width: 350px; height: 100vh; overflow-y: auto; background: #f8fafc; border-right: 1px solid #e2e8f0; position: absolute; left: 0; top: 0; z-index: 10; padding: 20px; box-shadow: 2px 0 5px rgba(0,0,0,0.05); }
+        #canvas-container { margin-left: 350px; width: calc(100vw - 350px); height: 100vh; background: #1e293b; }
+        .controls-hint { position: absolute; top: 20px; right: 20px; background: rgba(0,0,0,0.6); color: white; padding: 8px 12px; border-radius: 4px; font-size: 12px; pointer-events: none; z-index: 20;}
+    </style>
+    <script async src="https://unpkg.com/es-module-shims@1.8.0/dist/es-module-shims.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+    <div id="sidebar">
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">Container Planner</h1>
+        <p class="text-sm text-gray-500 mb-6">Plan 3D box stuffing and logistics.</p>
+
+        <div class="mb-6 p-4 bg-white rounded shadow-sm border border-gray-100">
+            <label class="block text-xs font-bold text-gray-700 tracking-wider mb-2 uppercase">Container Selection</label>
+            <select id="containerType" class="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500">
+                <option value="20">20' feet (28 cbm)</option>
+                <option value="40">40' feet (58 cbm)</option>
+                <option value="40HC" selected>40' feet High Cube (68 cbm)</option>
+            </select>
+        </div>
+
+        <div class="mb-6 p-4 bg-white rounded shadow-sm border border-gray-100">
+            <label class="block text-xs font-bold text-gray-700 tracking-wider mb-2 uppercase">Upload Data</label>
+            <p class="text-xs text-gray-500 mb-2">Select CSV File</p>
+            <input type="file" id="csvFile" accept=".csv" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer mb-3" />
+            <button onclick="downloadTemplate()" class="text-xs text-blue-600 hover:underline">Download CSV Template</button>
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-xs font-bold text-gray-700 tracking-wider mb-2 uppercase">Packing Stats</label>
+            <div class="grid grid-cols-2 gap-3 mb-3">
+                <div class="bg-blue-50 p-3 rounded border border-blue-100">
+                    <div class="text-xs text-blue-600 font-semibold mb-1">TOTAL CBM</div>
+                    <div id="statTotalCbm" class="text-lg font-bold text-blue-800">0.00</div>
+                </div>
+                <div class="bg-green-50 p-3 rounded border border-green-100">
+                    <div class="text-xs text-green-600 font-semibold mb-1">USED CBM</div>
+                    <div id="statUsedCbm" class="text-lg font-bold text-green-800">0.00</div>
+                </div>
+            </div>
+            <div class="bg-purple-50 p-3 rounded border border-purple-100">
+                <div class="flex justify-between items-end mb-1">
+                    <div class="text-xs text-purple-600 font-semibold">EFFICIENCY</div>
+                    <div id="statEfficiency" class="text-sm font-bold text-purple-800">0.0%</div>
+                </div>
+                <div class="w-full bg-purple-200 rounded-full h-2 mt-2">
+                    <div id="efficiencyBar" class="bg-purple-600 h-2 rounded-full" style="width: 0%"></div>
+                </div>
+            </div>
+            <div id="overflowMsg" class="mt-3 text-sm font-bold text-red-600 hidden"></div>
+        </div>
+
+        <button id="startBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded shadow-md transition-colors">
+            Start Planning
+        </button>
+
+        <button id="downloadReportBtn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded shadow-md mt-3 transition-colors hidden">
+            Download Loading Tally Sheet
+        </button>
+    </div>
+
+    <div id="canvas-container"></div>
+    <div class="controls-hint">Left Click: Rotate | Right Click: Pan | Scroll: Zoom</div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+        const CONTAINERS = {
+            '20': { l: 589.8, w: 235.2, h: 239.3, maxCbm: 33.2 },
+            '40': { l: 1203.2, w: 235.2, h: 239.3, maxCbm: 67.7 },
+            '40HC': { l: 1203.2, w: 235.2, h: 269.8, maxCbm: 76.4 }
+        };
+
+        let scene, camera, renderer, controls;
+        let containerMesh, packedBoxesMeshes = [];
+        let globalPackedData = [];
+
+        function initScene() {
+            const containerDiv = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color('#1e293b');
+
+            camera = new THREE.PerspectiveCamera(45, containerDiv.clientWidth / containerDiv.clientHeight, 0.1, 10000);
+            camera.position.set(800, 600, 1500);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(containerDiv.clientWidth, containerDiv.clientHeight);
+            containerDiv.appendChild(renderer.domElement);
+
+            controls = new OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(1000, 2000, 1000);
+            scene.add(dirLight);
+
+            window.addEventListener('resize', () => {
+                camera.aspect = containerDiv.clientWidth / containerDiv.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(containerDiv.clientWidth, containerDiv.clientHeight);
+            });
+
+            animate();
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        class Space {
+            constructor(x, y, z, l, w, h) {
+                this.x = x; this.y = y; this.z = z;
+                this.l = l; this.w = w; this.h = h;
+            }
+            get volume() { return this.l * this.w * this.h; }
+        }
+
+        function getRotations(box) {
+            let rots = [
+                { l: box.l, w: box.w, h: box.h }, { l: box.l, w: box.h, h: box.w },
+                { l: box.w, w: box.l, h: box.h }, { l: box.w, w: box.h, h: box.l },
+                { l: box.h, w: box.l, h: box.w }, { l: box.h, w: box.w, h: box.l }
+            ];
+            let unique = []; let seen = new Set();
+            for (let r of rots) {
+                let key = `${r.l}-${r.w}-${r.h}`;
+                if (!seen.has(key)) { seen.add(key); unique.push(r); }
+            }
+            return unique;
+        }
+
+        function packItems(items, containerDim) {
+            let freeSpaces = [new Space(0, 0, 0, containerDim.l, containerDim.w, containerDim.h)];
+            let packed = []; let overflow = [];
+            items.sort((a, b) => b.volume - a.volume);
+
+            for (let box of items) {
+                let placed = false;
+                freeSpaces.sort((a, b) => {
+                    if (Math.abs(a.z - b.z) > 0.1) return a.z - b.z; 
+                    if (Math.abs(a.y - b.y) > 0.1) return a.y - b.y; 
+                    return a.x - b.x; 
+                });
+
+                for (let i = 0; i < freeSpaces.length; i++) {
+                    let space = freeSpaces[i];
+                    let rotations = getRotations(box);
+                    
+                    for (let rot of rotations) {
+                        if (rot.l <= space.l && rot.w <= space.w && rot.h <= space.h) {
+                            box.packed_l = rot.l; box.packed_w = rot.w; box.packed_h = rot.h;
+                            box.x = space.x; box.y = space.y; box.z = space.z;
+                            packed.push(box); placed = true;
+                            freeSpaces.splice(i, 1);
+
+                            let s1 = new Space(box.x + box.packed_l, box.y, box.z, space.l - box.packed_l, space.w, space.h);
+                            let s2 = new Space(box.x, box.y + box.packed_w, box.z, box.packed_l, space.w - box.packed_w, space.h);
+                            let s3 = new Space(box.x, box.y, box.z + box.packed_h, box.packed_l, box.packed_w, space.h - box.packed_h);
+                            
+                            if (s1.volume > 0) freeSpaces.push(s1);
+                            if (s2.volume > 0) freeSpaces.push(s2);
+                            if (s3.volume > 0) freeSpaces.push(s3);
+                            break;
+                        }
+                    }
+                    if (placed) break;
+                }
+                if (!placed) overflow.push(box);
+            }
+            return { packed, overflow };
+        }
+
+        function generateRandomColor() {
+            const letters = '6789ABCDEF'; let color = '#';
+            for (let i = 0; i < 6; i++) color += letters[Math.floor(Math.random() * letters.length)];
+            return color;
+        }
+
+        window.downloadTemplate = function() {
+            let csv = "length,width,height,quantity,color\n60,40,30,100,#3b82f6\n50,50,40,50,green\n30,30,20,80,\n";
+            let blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob); link.download = "example_packing_data.csv"; link.click();
+        }
+
+        window.downloadTallySheet = function() {
+            if (globalPackedData.length === 0) return alert("No packed data available!");
+            let reportData = []; let currentGroup = null; let step = 1;
+            for (let i = 0; i < globalPackedData.length; i++) {
+                let box = globalPackedData[i]; let boxKey = `${box.orig_l} x ${box.orig_w} x ${box.orig_h}`;
+                if (currentGroup && currentGroup.size === boxKey && currentGroup.color === box.color) {
+                    currentGroup.qty += 1;
+                } else {
+                    if (currentGroup) reportData.push(currentGroup);
+                    currentGroup = { step: step++, size: boxKey, qty: 1, color: box.color };
+                }
+            }
+            if (currentGroup) reportData.push(currentGroup);
+            let csvStr = "Step,Box Size (L x W x H cm),Quantity to Load,Color Code\n";
+            reportData.forEach(row => csvStr += `Step ${row.step},"${row.size}",${row.qty},${row.color}\n`);
+            let blob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob); link.download = "Container_Loading_Tally_Sheet.csv"; link.click();
+        }
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            const fileInput = document.getElementById('csvFile');
+            if (!fileInput.files.length) return alert("Please select a CSV file first!");
+            const contType = document.getElementById('containerType').value;
+            const containerDim = CONTAINERS[contType];
+            Papa.parse(fileInput.files[0], {
+                header: true, skipEmptyLines: true,
+                complete: function(results) { processData(results.data, containerDim); }
+            });
+        });
+
+        function processData(data, containerDim) {
+            let itemsToPack = []; let colorMap = {};
+            data.forEach(row => {
+                let l = parseFloat(row.length); let w = parseFloat(row.width); let h = parseFloat(row.height); let qty = parseInt(row.quantity);
+                if (isNaN(l) || isNaN(w) || isNaN(h) || isNaN(qty)) return;
+                let dimKey = `${l}-${w}-${h}`;
+                let color = (row.color && row.color.trim() !== '') ? row.color.trim() : null;
+                if (!color) { if (!colorMap[dimKey]) colorMap[dimKey] = generateRandomColor(); color = colorMap[dimKey]; }
+                let volume = l * w * h;
+                for (let i = 0; i < qty; i++) itemsToPack.push({ orig_l: l, orig_w: w, orig_h: h, l: l, w: w, h: h, volume: volume, color: color });
+            });
+            if (itemsToPack.length === 0) return alert("No valid data found in CSV. Please use the template.");
+            const result = packItems(itemsToPack, containerDim);
+            globalPackedData = result.packed; 
+            renderScene(result.packed, containerDim); updateStats(result, containerDim);
+            document.getElementById('downloadReportBtn').classList.toggle('hidden', result.packed.length === 0);
+        }
+
+        function renderScene(packedBoxes, containerDim) {
+            if (containerMesh) scene.remove(containerMesh);
+            packedBoxesMeshes.forEach(mesh => scene.remove(mesh)); packedBoxesMeshes = [];
+            const cx = containerDim.l / 2; const cy = containerDim.h / 2; const cz = containerDim.w / 2; 
+            const geo = new THREE.BoxGeometry(containerDim.l, containerDim.h, containerDim.w);
+            containerMesh = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.5 }));
+            containerMesh.position.set(cx, cy, cz); scene.add(containerMesh);
+
+            packedBoxes.forEach(box => {
+                const bx = box.x + (box.packed_l / 2); const bz = box.y + (box.packed_w / 2); const by = box.z + (box.packed_h / 2);
+                const boxGeo = new THREE.BoxGeometry(box.packed_l, box.packed_h, box.packed_w);
+                const mesh = new THREE.Mesh(boxGeo, new THREE.MeshPhongMaterial({ color: box.color, shininess: 30 }));
+                mesh.position.set(bx, by, bz);
+                mesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.2 })));
+                scene.add(mesh); packedBoxesMeshes.push(mesh);
+            });
+            controls.target.set(cx, cy, cz); camera.position.set(containerDim.l * 1.2, containerDim.h * 3, containerDim.w * 3);
+        }
+
+        function updateStats(result, containerDim) {
+            let packedCbm = 0; result.packed.forEach(b => packedCbm += b.volume); packedCbm /= 1000000;
+            let eff = (packedCbm / (containerDim.maxCbm)) * 100;
+            document.getElementById('statTotalCbm').innerText = containerDim.maxCbm.toFixed(2);
+            document.getElementById('statUsedCbm').innerText = packedCbm.toFixed(2);
+            document.getElementById('statEfficiency').innerText = eff.toFixed(1) + "%";
+            document.getElementById('efficiencyBar').style.width = eff + "%";
+            const msgDiv = document.getElementById('overflowMsg');
+            if (result.overflow.length > 0) {
+                msgDiv.innerText = `Packed ${result.packed.length} items. ${result.overflow.length} overflowed!`;
+                msgDiv.classList.remove('hidden');
+            } else { msgDiv.classList.add('hidden'); }
+        }
+
+        initScene();
+    </script>
+</body>
+</html>
