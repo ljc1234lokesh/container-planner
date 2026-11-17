@@ -1,486 +1,491 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Container Stuffing Planner</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
-    <style>
-        body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
-        .hidden { display: none !important; }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Container Stuffing Planner</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:#0f172a; color:#e2e8f0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    .panel { background:#111c30; border:1px solid #263449; }
+    .field { width:100%; background:#0b1424; border:1px solid #334155; border-radius:.55rem; padding:.62rem .72rem; color:#e2e8f0; outline:none; }
+    .field:focus { border-color:#38bdf8; box-shadow:0 0 0 2px #0ea5e933; }
+    .btn { border-radius:.55rem; padding:.65rem .85rem; font-weight:650; transition:.15s; }
+    .btn:disabled { opacity:.4; cursor:not-allowed; }
+    .btn-primary { background:#0284c7; color:white; } .btn-primary:hover:not(:disabled) { background:#0369a1; }
+    .btn-secondary { background:#263449; color:#e2e8f0; } .btn-secondary:hover:not(:disabled) { background:#334155; }
+    .btn-green { background:#047857; color:white; } .btn-green:hover:not(:disabled) { background:#065f46; }
+    #viewport { position:relative; width:100%; height:100%; min-height:480px; overflow:hidden; background:#1e293b; }
+    #viewport canvas { display:block; width:100%; height:100%; touch-action:none; }
+    .hint { position:absolute; top:14px; left:14px; max-width:calc(100% - 28px); pointer-events:none; background:#020617d9; border:1px solid #64748b; border-radius:9px; padding:9px 12px; color:#f8fafc; font-size:12px; line-height:1.55; text-shadow:0 1px 2px #000; }
+    .step-card { background:#0b1424; border:1px solid #334155; border-radius:.65rem; }
+    .stat-value { font-variant-numeric:tabular-nums; }
+    .progress-track { height:9px; border-radius:99px; background:#334155; overflow:hidden; }
+    #progressBar { height:100%; width:0; background:linear-gradient(90deg,#0ea5e9,#34d399); transition:width .25s; }
+    .small-scroll { max-height:180px; overflow:auto; }
+    @media (min-width: 1024px) { #viewport { min-height:calc(100vh - 100px); } }
+    @media (max-width: 1023px) { #viewport { height:62vh; min-height:430px; } }
+  </style>
 </head>
-<body class="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-gray-900 text-gray-800">
+<body>
+  <header class="border-b border-slate-700 bg-slate-950 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <div class="text-lg sm:text-xl font-bold tracking-tight">3D Container Stuffing Planner</div>
+      <div class="text-xs text-slate-400">CSV import · 3D placement · loading sequence · tally export</div>
+    </div>
+    <div class="text-xs text-slate-400">Runs in your browser · No upload to a server</div>
+  </header>
 
-    <!-- Sidebar Controls -->
-    <aside class="w-full md:w-80 lg:w-96 bg-white shadow-xl h-full overflow-y-auto shrink-0 z-10 flex flex-col">
-        <div class="p-5 flex flex-col gap-4">
-            
-            <header>
-                <h1 class="text-2xl font-bold text-gray-900 mb-1">Container Planner</h1>
-                <p class="text-sm text-gray-500">3D stuffing & step-by-step loading</p>
-            </header>
-
-            <!-- Container Settings -->
-            <section class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <h2 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Container Selection</h2>
-                <select id="container-type" onchange="updateContainerSize()" class="w-full px-2 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <option value="20">20' feet (28 cbm)</option>
-                    <option value="40">40' feet (58 cbm)</option>
-                    <option value="40hc">40' feet High Cube (68 cbm)</option>
-                </select>
-            </section>
-
-            <!-- Data Upload -->
-            <section class="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <h2 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Upload Data</h2>
-                <input type="file" id="csv-file" accept=".csv" class="w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 cursor-pointer">
-                <div class="mt-2 text-right">
-                    <button onclick="downloadTemplate()" class="text-xs text-blue-600 font-semibold hover:underline">Download CSV Template</button>
-                </div>
-            </section>
-
-            <!-- Stats Panel -->
-            <section>
-                <div class="grid grid-cols-2 gap-2 mb-1">
-                    <div class="bg-blue-50 p-2 rounded-lg border border-blue-100">
-                        <div class="text-[10px] text-blue-500 font-bold tracking-wide">TOTAL CBM</div>
-                        <div id="stat-total-cbm" class="text-lg font-black text-blue-700">0.00</div>
-                    </div>
-                    <div class="bg-green-50 p-2 rounded-lg border border-green-100">
-                        <div class="text-[10px] text-green-500 font-bold tracking-wide">USED CBM</div>
-                        <div id="stat-used-cbm" class="text-lg font-black text-green-700">0.00</div>
-                    </div>
-                </div>
-                <div class="bg-purple-50 p-2 rounded-lg border border-purple-100">
-                    <div class="flex justify-between items-center mb-1">
-                        <div class="text-[10px] text-purple-500 font-bold tracking-wide">EFFICIENCY</div>
-                        <span id="stat-efficiency-text" class="text-xs font-bold text-purple-700">0%</span>
-                    </div>
-                    <div class="w-full bg-purple-200 rounded-full h-1.5">
-                        <div id="stat-efficiency-bar" class="bg-purple-600 h-1.5 rounded-full" style="width: 0%"></div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Actions (Buttons) -->
-            <section>
-                <div id="message-box" class="mb-2 text-sm text-center min-h-[1.5rem] font-medium"></div>
-                <button onclick="startPlanning()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-bold py-3 rounded-lg shadow-md transition-colors">
-                    Start Planning
-                </button>
-                <button id="download-tally-btn" onclick="downloadTallySheet()" class="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 rounded-lg shadow-md mt-2 hidden transition-colors">
-                    Download Excel Tally Sheet
-                </button>
-            </section>
-
-            <!-- Step-by-Step Playback Controls -->
-            <section id="playback-controls" class="mt-2 bg-blue-50 p-4 rounded-lg border border-blue-200 hidden pb-6">
-                <h2 class="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2 text-center">3D Loading Sequence</h2>
-                
-                <div id="step-indicator" class="text-center font-black text-xl text-blue-700 mb-1">Step 0 / 0</div>
-                <div id="step-details" class="text-center text-sm font-bold text-gray-700 mb-4 min-h-[2.5rem] flex items-center justify-center bg-white rounded border border-blue-100 p-2">--</div>
-                
-                <div class="flex justify-between gap-3">
-                    <button onclick="prevStep()" class="flex-1 bg-white border-2 border-blue-600 text-blue-700 font-bold py-3 rounded-lg active:bg-blue-100 transition-colors text-sm shadow-sm">
-                        &larr; Prev
-                    </button>
-                    <button onclick="nextStep()" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-lg active:bg-blue-700 transition-colors text-sm shadow-sm">
-                        Next &rarr;
-                    </button>
-                </div>
-                
-                <button onclick="showAllSteps()" class="w-full mt-3 bg-gray-200 text-gray-700 text-xs font-bold py-2 rounded active:bg-gray-300 transition-colors">
-                    Show Full Container
-                </button>
-            </section>
-            
+  <main class="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-3 p-3">
+    <aside class="space-y-3">
+      <section class="panel rounded-xl p-4 space-y-3">
+        <h2 class="font-bold text-slate-100">Container settings</h2>
+        <label class="block text-sm text-slate-300">Container type
+          <select id="containerType" class="field mt-1">
+            <option value="20">20' Standard · 28 CBM capacity</option>
+            <option value="40">40' Standard · 58 CBM capacity</option>
+            <option value="40hc">40' High Cube · 68 CBM capacity</option>
+          </select>
+        </label>
+        <div class="grid grid-cols-3 gap-2 text-xs">
+          <div class="rounded-lg bg-slate-900 p-2"><div class="text-slate-500">Length</div><div id="dimL" class="font-semibold mt-1">5.90 m</div></div>
+          <div class="rounded-lg bg-slate-900 p-2"><div class="text-slate-500">Width</div><div id="dimW" class="font-semibold mt-1">2.35 m</div></div>
+          <div class="rounded-lg bg-slate-900 p-2"><div class="text-slate-500">Height</div><div id="dimH" class="font-semibold mt-1">2.39 m</div></div>
         </div>
+        <p class="text-[11px] text-slate-500">Approximate internal dimensions for planning. Capacity figures are the selected working CBM limits; always verify the actual container's dimensions and payload.</p>
+      </section>
+
+      <section class="panel rounded-xl p-4 space-y-3">
+        <div class="flex items-center justify-between gap-2">
+          <h2 class="font-bold">Item data</h2><span id="itemCount" class="text-xs text-slate-400">0 units</span>
+        </div>
+        <input id="csvFile" type="file" accept=".csv,text/csv" class="field text-sm" />
+        <div class="grid grid-cols-2 gap-2">
+          <button id="templateBtn" class="btn btn-secondary text-xs">Download CSV Template</button>
+          <button id="sampleBtn" class="btn btn-secondary text-xs">Load Sample Data</button>
+        </div>
+        <div id="fileStatus" class="text-xs text-slate-400" aria-live="polite">Upload a CSV with item dimensions in centimetres.</div>
+        <div class="text-[11px] text-slate-500">Required headers: Item Name, Length (cm), Width (cm), Height (cm), Quantity. Color is optional.</div>
+        <div id="itemPreview" class="small-scroll text-xs text-slate-400 space-y-1"></div>
+        <button id="packBtn" class="btn btn-primary w-full" disabled>Pack items in container</button>
+      </section>
+
+      <section class="panel rounded-xl p-4 space-y-3">
+        <h2 class="font-bold">Packing statistics</h2>
+        <div class="grid grid-cols-3 gap-2">
+          <div class="bg-slate-900 rounded-lg p-2"><div class="text-[10px] text-slate-500">Total CBM</div><div id="totalCbm" class="stat-value text-base font-bold mt-1">28.00</div></div>
+          <div class="bg-slate-900 rounded-lg p-2"><div class="text-[10px] text-slate-500">Used CBM</div><div id="usedCbm" class="stat-value text-base font-bold mt-1">0.00</div></div>
+          <div class="bg-slate-900 rounded-lg p-2"><div class="text-[10px] text-slate-500">Efficiency</div><div id="efficiency" class="stat-value text-base font-bold mt-1">0.0%</div></div>
+        </div>
+        <div class="progress-track"><div id="progressBar"></div></div>
+        <div class="flex justify-between text-xs text-slate-400"><span id="packedUnits">0 / 0 units packed</span><span id="unpackedUnits">0 not packed</span></div>
+        <div id="packMessage" class="text-xs text-slate-400" aria-live="polite">Import items, then run the packing planner.</div>
+      </section>
+
+      <section class="panel rounded-xl p-4 space-y-3">
+        <h2 class="font-bold">Loading sequence</h2>
+        <div class="step-card p-3 space-y-2">
+          <div class="flex justify-between text-xs text-slate-400"><span id="stepCounter">No sequence</span><span id="stepUnits">—</span></div>
+          <div id="stepInstruction" class="text-sm font-semibold text-slate-100">Pack items to generate warehouse loading instructions.</div>
+          <div id="stepDetails" class="text-xs text-slate-400"></div>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <button id="prevBtn" class="btn btn-secondary text-sm" disabled>← Prev</button>
+          <button id="nextBtn" class="btn btn-secondary text-sm" disabled>Next →</button>
+          <button id="fullBtn" class="btn btn-green text-xs" disabled>Show Full</button>
+        </div>
+        <button id="tallyBtn" class="btn btn-secondary w-full text-sm" disabled>Download Excel Tally Sheet (CSV)</button>
+      </section>
+      <div class="text-[11px] leading-relaxed text-slate-500 px-1">Packing is a heuristic plan, not a certified load plan. It does not model weight, crush strength, dunnage, doors, forklift access, hazardous segregation, or securing. Check the final load physically.</div>
     </aside>
 
-    <!-- 3D Visualization Area -->
-    <main class="flex-1 relative h-full w-full" id="canvas-container">
-        <div class="absolute top-4 left-4 text-white text-xs md:text-sm font-semibold pointer-events-none z-10 bg-gray-900/90 px-3.5 py-2 rounded-lg shadow-lg border border-blue-500/50">
-            💡 <span class="text-blue-400">Controls:</span> Touch/Left Click: Rotate | Right Click: Pan | Scroll/Pinch: Zoom
+    <section class="min-w-0 space-y-3">
+      <div class="rounded-xl overflow-hidden border border-slate-700 shadow-2xl">
+        <div id="viewport">
+          <div class="hint"><strong>Controls</strong><br>Touch / Left Click: Rotate<br>Right Click: Pan<br>Scroll / Pinch: Zoom</div>
+          <div id="loadingOverlay" class="absolute inset-0 flex items-center justify-center text-sm text-slate-300 pointer-events-none">Preparing 3D view…</div>
         </div>
-    </main>
+      </div>
+      <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-slate-400">
+        <span>View: container door is at the front (right-hand end of the model).</span>
+        <span id="viewStatus">Waiting for items</span>
+      </div>
+    </section>
+  </main>
 
-    <script>
-        let containerSize = { w: 5.89, h: 2.39, d: 2.35, maxCbm: 28 };
-        let boxes = [];
-        let globalPackedBoxes = [];
-        let boxIdCounter = 0;
-        
-        let currentStep = 0;
-        let totalSteps = 0;
-        let stepDataMap = {};
-        
-        let scene, camera, renderer, controls, containerMesh, boxGroup;
+<script>
+(() => {
+  "use strict";
 
-        function init() {
-            initThreeJS();
-            updateContainerSize();
-            animate();
-        }
+  const CONTAINERS = {
+    "20":   { name:"20' Standard", length:5.90, width:2.35, height:2.39, capacity:28 },
+    "40":   { name:"40' Standard", length:12.03, width:2.35, height:2.39, capacity:58 },
+    "40hc": { name:"40' High Cube", length:12.03, width:2.35, height:2.69, capacity:68 }
+  };
+  const $ = id => document.getElementById(id);
+  let sourceItems = [], packedBoxes = [], steps = [], currentStep = -1, scene, camera, renderer, controls;
+  let boxGroup, containerGroup, resizeObserver;
 
-        function initThreeJS() {
-            const container = document.getElementById('canvas-container');
-            scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x1e293b); 
+  function setStatus(message, isError=false) {
+    $("fileStatus").textContent = message;
+    $("fileStatus").className = "text-xs " + (isError ? "text-rose-400" : "text-slate-400");
+  }
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  }
+  function csvCell(value) {
+    const s = String(value ?? "");
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+  }
+  function downloadCsv(filename, rows) {
+    const csv = "\uFEFF" + rows.map(row => row.map(csvCell).join(",")).join("\r\n");
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  }
+  function downloadTemplate() {
+    downloadCsv("container_stuffing_template.csv", [
+      ["Item Name","Length (cm)","Width (cm)","Height (cm)","Quantity","Color"],
+      ["Decorative Box","40","30","25","20","#e879f9"],
+      ["Wooden Tray","50","35","8","15","#f59e0b"]
+    ]);
+  }
+  function normalizeHeader(s) { return String(s || "").trim().toLowerCase().replace(/[\s_-]+/g,""); }
+  function parseRows(rows) {
+    const required = ["itemname","length(cm)","width(cm)","height(cm)","quantity"];
+    if (!rows.length) throw new Error("CSV is empty.");
+    const headers = Object.keys(rows[0] || {});
+    const map = {};
+    headers.forEach(h => map[normalizeHeader(h)] = h);
+    const aliases = {
+      name:["itemname","item","name","productname"],
+      l:["length(cm)","length","l(cm)","l"],
+      w:["width(cm)","width","w(cm)","w"],
+      h:["height(cm)","height","h(cm)","h"],
+      q:["quantity","qty","pcs"],
+      color:["color","colour"]
+    };
+    const find = key => aliases[key].map(a=>map[a]).find(Boolean);
+    const missing = required.filter(k => !map[k]);
+    if (missing.length) throw new Error("Missing required CSV columns: " + missing.join(", "));
+    const result = [];
+    rows.forEach((row, index) => {
+      if (!row || Object.values(row).every(v => String(v ?? "").trim()==="")) return;
+      const name = String(row[find("name")] || `Item ${index+1}`).trim();
+      const l=Number(row[find("l")]), w=Number(row[find("w")]), h=Number(row[find("h")]), q=Number(row[find("q")]);
+      if (![l,w,h,q].every(Number.isFinite) || l<=0 || w<=0 || h<=0 || !Number.isInteger(q) || q<=0)
+        throw new Error(`Invalid dimensions or quantity on CSV row ${index+2}. Use positive numbers and a whole-number quantity.`);
+      if (q > 10000) throw new Error(`Quantity on row ${index+2} is too large (maximum 10,000 per row).`);
+      result.push({name, l:l/100, w:w/100, h:h/100, qty:q, color:String(row[find("color")] || "").trim()});
+    });
+    if (!result.length) throw new Error("No valid item rows found.");
+    return result;
+  }
+  function setItems(items, label) {
+    sourceItems = items;
+    packedBoxes=[]; steps=[]; currentStep=-1;
+    $("itemCount").textContent = items.reduce((s,x)=>s+x.qty,0).toLocaleString()+" units";
+    $("packBtn").disabled=false;
+    $("tallyBtn").disabled=true; $("prevBtn").disabled=true; $("nextBtn").disabled=true; $("fullBtn").disabled=true;
+    $("packMessage").textContent="Ready to pack. Click “Pack items in container”.";
+    $("viewStatus").textContent=label;
+    renderPreview(); updateStats(0,0,0); updateStepUI(); rebuildScene();
+  }
+  function renderPreview() {
+    $("itemPreview").innerHTML = sourceItems.slice(0,8).map(x =>
+      `<div class="flex justify-between gap-2 border-b border-slate-800 py-1"><span class="truncate">${escapeHtml(x.name)}</span><span class="shrink-0">${x.qty} × ${Math.round(x.l*100)}×${Math.round(x.w*100)}×${Math.round(x.h*100)} cm</span></div>`
+    ).join("") + (sourceItems.length>8 ? `<div class="pt-1 text-slate-500">+ ${sourceItems.length-8} more SKU rows</div>` : "");
+  }
+  $("templateBtn").addEventListener("click", downloadTemplate);
+  $("sampleBtn").addEventListener("click", () => setItems([
+    {name:"Decorative Mirror Carton",l:.60,w:.45,h:.18,qty:12,color:"#60a5fa"},
+    {name:"Wooden Tray Carton",l:.50,w:.35,h:.25,qty:20,color:"#f59e0b"},
+    {name:"Metal Vase Carton",l:.40,w:.40,h:.55,qty:10,color:"#34d399"},
+    {name:"Photo Frame Carton",l:.55,w:.35,h:.12,qty:24,color:"#f472b6"}
+  ],"Sample data loaded"));
+  $("csvFile").addEventListener("change", event => {
+    const file=event.target.files && event.target.files[0]; if(!file) return;
+    setStatus("Reading "+file.name+"…");
+    $("packBtn").disabled=true;
+    Papa.parse(file, {
+      header:true, skipEmptyLines:"greedy", worker:true,
+      complete: results => {
+        try {
+          if(results.errors && results.errors.length) throw new Error(results.errors[0].message);
+          const items=parseRows(results.data);
+          setItems(items,"Imported "+file.name);
+          setStatus(`Imported ${items.length} SKU rows successfully.`);
+        } catch(err) { setStatus(err.message,true); $("packBtn").disabled=sourceItems.length===0; }
+      },
+      error: err => { setStatus("CSV read failed: "+err.message,true); $("packBtn").disabled=sourceItems.length===0; }
+    });
+  });
 
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-            camera.position.set(30, 20, 35);
+  function getContainer() { return CONTAINERS[$("containerType").value]; }
+  function updateContainerLabels() {
+    const c=getContainer();
+    $("dimL").textContent=c.length.toFixed(2)+" m"; $("dimW").textContent=c.width.toFixed(2)+" m"; $("dimH").textContent=c.height.toFixed(2)+" m";
+    $("totalCbm").textContent=c.capacity.toFixed(2);
+    $("packMessage").textContent="Container changed. Run packing again to update placements.";
+    if(scene) rebuildScene();
+  }
+  $("containerType").addEventListener("change", updateContainerLabels);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-            renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            container.appendChild(renderer.domElement);
+  // Maximal-space style heuristic: place each carton in the best fitting free cuboid,
+  // then split the occupied free cuboid into residual spaces and prune contained spaces.
+  function intersects(a,b) {
+    const eps=1e-7;
+    return a.x < b.x+b.l-eps && a.x+a.l > b.x+eps &&
+           a.y < b.y+b.w-eps && a.y+a.w > b.y+eps &&
+           a.z < b.z+b.h-eps && a.z+a.h > b.z+eps;
+  }
+  function contains(a,b) {
+    const e=1e-7;
+    return a.x<=b.x+e && a.y<=b.y+e && a.z<=b.z+e &&
+      a.x+a.l>=b.x+b.l-e && a.y+a.w>=b.y+b.w-e && a.z+a.h>=b.z+b.h-e;
+  }
+  function pruneSpaces(spaces) {
+    const out=[];
+    for(let i=0;i<spaces.length;i++) {
+      const s=spaces[i]; if(s.l<.005 || s.w<.005 || s.h<.005) continue;
+      let contained=false;
+      for(let j=0;j<spaces.length;j++) if(i!==j && contains(spaces[j],s) &&
+        (spaces[j].l*spaces[j].w*spaces[j].h > s.l*s.w*s.h+1e-8)) { contained=true; break; }
+      if(!contained) out.push(s);
+    }
+    // Keep search bounded for very large SKU lists; retain largest useful spaces.
+    return out.sort((a,b)=>(b.l*b.w*b.h)-(a.l*a.w*a.h)).slice(0,1200);
+  }
+  function orientations(item) {
+    const vals=[[item.l,item.w,item.h],[item.l,item.h,item.w],[item.w,item.l,item.h],
+      [item.w,item.h,item.l],[item.h,item.l,item.w],[item.h,item.w,item.l]];
+    const seen=new Set();
+    return vals.filter(v=>{const k=v.map(n=>n.toFixed(5)).join("|"); if(seen.has(k))return false; seen.add(k);return true;});
+  }
+  function bestPlacement(item, spaces) {
+    let best=null;
+    for(let si=0;si<spaces.length;si++) {
+      const s=spaces[si];
+      for(const [l,w,h] of orientations(item)) {
+        if(l>s.l+1e-7 || w>s.w+1e-7 || h>s.h+1e-7) continue;
+        const leftover=[s.l-l,s.w-w,s.h-h];
+        const score=Math.min(...leftover)*1000 + leftover.reduce((a,b)=>a+b,0) +
+          (s.l*s.w*s.h-l*w*h)*.001;
+        if(!best || score<best.score) best={si,s,l,w,h,score};
+      }
+    }
+    return best;
+  }
+  function packAll() {
+    const c=getContainer(), eps=1e-6;
+    const units=[];
+    sourceItems.forEach((item,skuIndex)=>{
+      for(let n=0;n<item.qty;n++) units.push({...item,skuIndex,unitNo:n+1,volume:item.l*item.w*item.h});
+    });
+    // Largest cartons first, with stable ordering for repeatable plans.
+    units.sort((a,b)=>b.volume-a.volume || Math.max(b.l,b.w,b.h)-Math.max(a.l,a.w,a.h) || a.skuIndex-b.skuIndex);
+    let free=[{x:0,y:0,z:0,l:c.length,w:c.width,h:c.height}];
+    const placed=[];
+    let usedVolume=0;
+    for(const item of units) {
+      const p=bestPlacement(item,free);
+      if(!p) continue;
+      const {s,l,w,h}=p, x=s.x, y=s.y, z=s.z;
+      const box={...item,x,y,z,pl:l,pw:w,ph:h,volume:l*w*h};
+      // Guard against any numerical/algorithmic overlap before accepting placement.
+      if(x+l>c.length+eps || y+w>c.width+eps || z+h>c.height+eps || placed.some(b=>intersects(box,b))) continue;
+      placed.push(box); usedVolume+=box.volume;
+      free.splice(p.si,1);
+      const candidates=[
+        {x:x+l,y:y,z:z,l:s.l-l,w:s.w,h:s.h},
+        {x:x,y:y+w,z:z,l:l,w:s.w-w,h:s.h},
+        {x:x,y:y,z:z+h,l:l,w:w,h:s.h-h},
+        {x:x+l,y:y,z:z,l:s.l-l,w:w,h:h},
+        {x:x,y:y+w,z:z,l:l,w:s.w-w,h:h},
+        {x:x,y:y,z:z+h,l:s.l,w:s.w,h:s.h-h}
+      ];
+      free=pruneSpaces(free.concat(candidates).filter(q=>q.l>eps&&q.w>eps&&q.h>eps));
+    }
+    // Group into practical loading batches, ordered deepest/back first, then low-to-high.
+    // X=0 is container nose/back wall; door is at maximum X.
+    const sorted=placed.slice().sort((a,b)=>a.x-b.x || a.z-b.z || a.y-b.y || a.skuIndex-b.skuIndex);
+    const batches=[];
+    const depthBand=.75;
+    sorted.forEach(box=>{
+      let batch=batches.find(g=>Math.abs(g.anchor-box.x)<depthBand);
+      if(!batch){batch={anchor:box.x,boxes:[]};batches.push(batch);}
+      batch.boxes.push(box);
+    });
+    batches.sort((a,b)=>a.anchor-b.anchor);
+    steps=batches.map((g,i)=>{
+      g.boxes.sort((a,b)=>a.z-b.z || a.y-b.y);
+      const groups={};
+      g.boxes.forEach(b=>{
+        const key=[b.name,Math.round(b.pl*100),Math.round(b.pw*100),Math.round(b.ph*100)].join("|");
+        if(!groups[key]) groups[key]={name:b.name,l:b.pl,w:b.pw,h:b.ph,count:0};
+        groups[key].count++;
+      });
+      return {number:i+1,boxes:g.boxes,groups:Object.values(groups),units:g.boxes.length,
+        xStart:Math.min(...g.boxes.map(b=>b.x)),xEnd:Math.max(...g.boxes.map(b=>b.x+b.pl))};
+    });
+    packedBoxes=placed;
+    currentStep=steps.length ? 0 : -1;
+    const totalUnits=units.length, packed=placed.length, notPacked=totalUnits-packed;
+    updateStats(usedVolume,packed,totalUnits);
+    $("packMessage").textContent=notPacked
+      ? `${notPacked} unit(s) could not be placed. Try a larger container, smaller cartons, or review dimensions.`
+      : "All units fit geometrically. Check the loading sequence and physical loading constraints.";
+    $("packMessage").className="text-xs "+(notPacked?"text-amber-300":"text-emerald-300");
+    $("viewStatus").textContent=`${packed} packed · ${steps.length} loading steps`;
+    $("tallyBtn").disabled=steps.length===0;
+    $("prevBtn").disabled=steps.length===0; $("nextBtn").disabled=steps.length===0; $("fullBtn").disabled=steps.length===0;
+    rebuildScene(); showStep(currentStep); updateStepUI();
+  }
+  function updateStats(used,packed,total) {
+    const c=getContainer(), eff=used/c.capacity*100;
+    $("usedCbm").textContent=used.toFixed(2); $("efficiency").textContent=eff.toFixed(1)+"%";
+    $("progressBar").style.width=Math.min(100,eff)+"%";
+    $("packedUnits").textContent=`${packed.toLocaleString()} / ${total.toLocaleString()} units packed`;
+    $("unpackedUnits").textContent=`${Math.max(0,total-packed).toLocaleString()} not packed`;
+    $("itemCount").textContent=(sourceItems.reduce((s,x)=>s+x.qty,0)).toLocaleString()+" units";
+  }
+  $("packBtn").addEventListener("click",()=>{
+    if(!sourceItems.length)return;
+    $("packBtn").disabled=true; $("packBtn").textContent="Packing…";
+    // Yield to the browser before CPU work so the UI can paint the busy state.
+    setTimeout(()=>{try{packAll();}catch(e){console.error(e);$("packMessage").textContent="Packing error: "+e.message;}finally{$("packBtn").disabled=false;$("packBtn").textContent="Pack items in container";}},30);
+  });
 
-            controls = new OrbitControls(camera, renderer.domElement);
-            controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.target.set(0, 0, 0);
+  function init3D() {
+    const host=$("viewport");
+    scene=new THREE.Scene(); scene.background=new THREE.Color(0x1e293b);
+    camera=new THREE.PerspectiveCamera(45,1,.01,200);
+    renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+    renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+    host.appendChild(renderer.domElement);
+    controls=new THREE.OrbitControls(camera,renderer.domElement);
+    controls.enableDamping=true; controls.dampingFactor=.07; controls.screenSpacePanning=true;
+    scene.add(new THREE.HemisphereLight(0xffffff,0x64748b,2.0));
+    const key=new THREE.DirectionalLight(0xffffff,1.5); key.position.set(-8,12,8); scene.add(key);
+    const ground=new THREE.GridHelper(30,30,0x64748b,0x475569); ground.position.y=-.012; scene.add(ground);
+    containerGroup=new THREE.Group(); boxGroup=new THREE.Group(); scene.add(containerGroup); scene.add(boxGroup);
+    resizeObserver=new ResizeObserver(resize3D); resizeObserver.observe(host);
+    window.addEventListener("resize",resize3D);
+    rebuildScene();
+    $("loadingOverlay").style.display="none";
+    animate();
+  }
+  function resize3D() {
+    if(!renderer)return;
+    const host=$("viewport"), w=host.clientWidth, h=host.clientHeight;
+    if(!w||!h)return;
+    camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h,false);
+  }
+  function clearGroup(group) {
+    while(group.children.length) {
+      const obj=group.children.pop();
+      obj.traverse(o=>{if(o.geometry)o.geometry.dispose(); if(o.material){(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());}});
+    }
+  }
+  function rebuildScene() {
+    if(!scene)return;
+    clearGroup(containerGroup); clearGroup(boxGroup);
+    const c=getContainer(), L=c.length,W=c.width,H=c.height;
+    const floor=new THREE.Mesh(new THREE.BoxGeometry(L,.025,W),new THREE.MeshStandardMaterial({color:0x64748b,transparent:true,opacity:.22,roughness:.9}));
+    floor.position.set(L/2,0,W/2); containerGroup.add(floor);
+    const shell=new THREE.Mesh(new THREE.BoxGeometry(L,H,W),new THREE.MeshBasicMaterial({color:0x38bdf8,transparent:true,opacity:.045,side:THREE.BackSide,depthWrite:false}));
+    shell.position.set(L/2,H/2,W/2); containerGroup.add(shell);
+    const edges=new THREE.EdgesGeometry(new THREE.BoxGeometry(L,H,W));
+    const wire=new THREE.LineSegments(edges,new THREE.LineBasicMaterial({color:0x7dd3fc,transparent:true,opacity:.9}));
+    wire.position.set(L/2,H/2,W/2); containerGroup.add(wire);
+    // Door frame marker at x = container length.
+    const door=new THREE.Mesh(new THREE.BoxGeometry(.025,H,W),new THREE.MeshBasicMaterial({color:0xfbbf24,wireframe:true,transparent:true,opacity:.75}));
+    door.position.set(L,H/2,W/2); containerGroup.add(door);
+    const center=new THREE.Vector3(L/2,H/2,W/2);
+    controls.target.copy(center);
+    const maxDim=Math.max(L,W,H);
+    camera.position.set(L*1.35,H*1.45,W*2.0);
+    camera.near=.01; camera.far=250; camera.updateProjectionMatrix();
+    controls.minDistance=maxDim*.45; controls.maxDistance=maxDim*5;
+    controls.update();
+    if(packedBoxes.length) drawBoxes();
+  }
+  function drawBoxes() {
+    const visible = currentStep===-2 ? packedBoxes : currentStep===-1 ? [] : packedBoxes.filter(b=>steps[currentStep] && steps[currentStep].boxes.includes(b));
+    visible.forEach((b,index)=>{
+      const color = validColor(b.color) || colorFor(b.skuIndex);
+      const geo=new THREE.BoxGeometry(b.pl,b.ph,b.pw);
+      const mat=new THREE.MeshStandardMaterial({color,roughness:.72,metalness:.04});
+      const mesh=new THREE.Mesh(geo,mat);
+      mesh.position.set(b.x+b.pl/2,b.z+b.ph/2,b.y+b.pw/2);
+      mesh.castShadow=true; mesh.receiveShadow=true; boxGroup.add(mesh);
+      const edge=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0x0f172a,transparent:true,opacity:.8}));
+      edge.position.copy(mesh.position); boxGroup.add(edge);
+    });
+  }
+  function validColor(c) { return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c||"") ? c : null; }
+  function colorFor(n) { const palette=[0x60a5fa,0xf59e0b,0x34d399,0xf472b6,0xa78bfa,0x22d3ee,0xfb7185,0xc084fc]; return palette[n%palette.length]; }
+  function showStep(step) {
+    currentStep=step;
+    clearGroup(boxGroup);
+    if(step===-2) drawBoxes();
+    else if(step>=0) drawBoxes();
+    updateStepUI();
+  }
+  function updateStepUI() {
+    const count=steps.length;
+    if(!count || currentStep===-1) {
+      $("stepCounter").textContent=count?"Sequence ready":"No sequence";
+      $("stepUnits").textContent="—";
+      $("stepInstruction").textContent=count?"Choose Next to preview the first loading step.":"Pack items to generate warehouse loading instructions.";
+      $("stepDetails").textContent="";
+    } else if(currentStep===-2) {
+      $("stepCounter").textContent="Full container";
+      $("stepUnits").textContent=packedBoxes.length+" cartons";
+      $("stepInstruction").textContent="Full planned load shown.";
+      $("stepDetails").textContent="All packed cartons are visible in the 3D container.";
+    } else {
+      const s=steps[currentStep];
+      $("stepCounter").textContent=`Step ${currentStep+1} of ${count}`;
+      $("stepUnits").textContent=s.units+" cartons";
+      $("stepInstruction").textContent=s.groups.map(g=>`Load ${g.count} carton${g.count===1?"":"s"} of ${g.name}`).join("; ");
+      $("stepDetails").innerHTML=s.groups.map(g=>`${escapeHtml(g.name)} · ${g.count} pcs · ${Math.round(g.l*100)} × ${Math.round(g.w*100)} × ${Math.round(g.h*100)} cm`).join("<br>")+
+        `<br><span class="text-slate-500">Loading zone: ${s.xStart.toFixed(2)}–${s.xEnd.toFixed(2)} m from back wall; bottom-to-top within zone.</span>`;
+    }
+    $("prevBtn").disabled=!count || currentStep===-1 || currentStep===0;
+    $("nextBtn").disabled=!count || currentStep===-2 || currentStep>=count-1;
+    $("fullBtn").disabled=!count;
+  }
+  $("prevBtn").addEventListener("click",()=>{if(currentStep===-2)showStep(steps.length-1);else if(currentStep>0)showStep(currentStep-1);});
+  $("nextBtn").addEventListener("click",()=>{if(currentStep===-1)showStep(0);else if(currentStep>=0&&currentStep<steps.length-1)showStep(currentStep+1);});
+  $("fullBtn").addEventListener("click",()=>showStep(-2));
 
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-            scene.add(ambientLight);
+  $("tallyBtn").addEventListener("click",()=>{
+    if(!steps.length)return;
+    const rows=[["Loading Step","Sequence","Item Name","Quantity","Packed Size L (cm)","Packed Size W (cm)","Packed Size H (cm)","Position X from Back (m)","Position Y from Side (m)","Position Z from Floor (m)","Container"]];
+    const c=getContainer();
+    steps.forEach(s=>s.boxes.forEach((b,i)=>rows.push([
+      s.number,i+1,b.name,1,(b.pl*100).toFixed(1),(b.pw*100).toFixed(1),(b.ph*100).toFixed(1),
+      b.x.toFixed(3),b.y.toFixed(3),b.z.toFixed(3),c.name
+    ])));
+    downloadCsv("container_loading_tally_sheet.csv",rows);
+  });
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight.position.set(15, 25, 15);
-            scene.add(dirLight);
-            
-            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.5);
-            dirLight2.position.set(-15, 15, -15);
-            scene.add(dirLight2);
-
-            boxGroup = new THREE.Group();
-            scene.add(boxGroup);
-
-            window.addEventListener('resize', onWindowResize, false);
-        }
-
-        function updateContainerSize() {
-            const type = document.getElementById('container-type').value;
-            if (type === '20') { containerSize = { w: 5.89, h: 2.39, d: 2.35, maxCbm: 28 }; }
-            else if (type === '40') { containerSize = { w: 12.03, h: 2.39, d: 2.35, maxCbm: 58 }; }
-            else if (type === '40hc') { containerSize = { w: 12.03, h: 2.69, d: 2.35, maxCbm: 68 }; }
-
-            if (containerMesh) scene.remove(containerMesh);
-
-            const geo = new THREE.BoxGeometry(containerSize.w, containerSize.h, containerSize.d);
-            const edges = new THREE.EdgesGeometry(geo);
-            containerMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x60a5fa, linewidth: 3, transparent: true, opacity: 0.9 }));
-            
-            const fillMat = new THREE.MeshBasicMaterial({ color: 0x334155, transparent: true, opacity: 0.1, side: THREE.DoubleSide });
-            containerMesh.add(new THREE.Mesh(geo, fillMat));
-
-            scene.add(containerMesh);
-            
-            document.getElementById('stat-total-cbm').innerText = containerSize.maxCbm.toFixed(2);
-            updateStats(0);
-            clear3DBoxes();
-            
-            showMessage('Container selected. Ready to pack.', 'text-gray-500');
-            document.getElementById('download-tally-btn').classList.add('hidden');
-            document.getElementById('playback-controls').classList.add('hidden');
-        }
-
-        function downloadTemplate() {
-            const template = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\nStandard Box,50,40,30,20,#3b82f6\nLarge Box,100,50,50,10,#10b981\nPallet Base,120,100,15,5,#f59e0b";
-            const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "packing_template.csv";
-            link.click();
-        }
-
-        function startPlanning() {
-            const fileInput = document.getElementById('csv-file');
-            if (!fileInput.files.length) { showMessage('Please select a CSV file first!', 'text-red-500'); return; }
-
-            showMessage('Processing data...', 'text-blue-600 font-bold');
-
-            // Use setTimeout so the UI has time to display "Processing data..." instead of freezing
-            setTimeout(() => {
-                Papa.parse(fileInput.files[0], {
-                    skipEmptyLines: true, header: true,
-                    complete: function(results) {
-                        boxes = []; boxIdCounter = 0; const colorMap = {}; 
-                        
-                        results.data.forEach((row) => {
-                            const getVal = (keywords) => {
-                                const key = Object.keys(row).find(k => keywords.some(kw => k.toLowerCase().includes(kw)));
-                                return key ? row[key] : undefined;
-                            };
-
-                            const lStr = getVal(['length', 'l (', 'len']);
-                            const wStr = getVal(['width', 'w (', 'wid']);
-                            const hStr = getVal(['height', 'h (', 'hgt']);
-                            const qStr = getVal(['quantity', 'qty']);
-                            const cStr = getVal(['color']);
-
-                            const l_cm = parseFloat(lStr); const w_cm = parseFloat(wStr);
-                            const h_cm = parseFloat(hStr); const qty = parseInt(qStr);
-                            
-                            if (isNaN(l_cm) || isNaN(w_cm) || isNaN(h_cm) || isNaN(qty)) return;
-
-                            let color = (cStr && cStr.trim() !== '') ? cStr.trim() : null;
-                            if (!color) {
-                                const dimKey = `${l_cm}x${w_cm}x${h_cm}`;
-                                if (!colorMap[dimKey]) { colorMap[dimKey] = `hsl(${Math.floor(Math.random() * 360)}, 75%, 55%)`; }
-                                color = colorMap[dimKey];
-                            }
-
-                            for (let i = 0; i < qty; i++) {
-                                boxes.push({
-                                    id: boxIdCounter++, orig_l: l_cm, orig_w: w_cm, orig_h: h_cm,
-                                    w: l_cm/100, h: h_cm/100, d: w_cm/100, color: color
-                                });
-                            }
-                        });
-
-                        if (boxes.length === 0) { 
-                            showMessage('Error: No valid rows found. Check column headers!', 'text-red-500'); 
-                            return; 
-                        }
-
-                        packContainer();
-                    },
-                    error: function(err) {
-                        showMessage('Error parsing CSV file.', 'text-red-500');
-                    }
-                });
-            }, 50);
-        }
-
-        function intersects(fs, B) { return !( B.x >= fs.x + fs.w - 0.001 || B.x + B.w <= fs.x + 0.001 || B.y >= fs.y + fs.h - 0.001 || B.y + B.h <= fs.y + 0.001 || B.z >= fs.z + fs.d - 0.001 || B.z + B.d <= fs.z + 0.001 ); }
-        function splitSpace(fs, B) {
-            let s = [];
-            if (B.y + B.h < fs.y + fs.h) s.push({ x: fs.x, y: B.y + B.h, z: fs.z, w: fs.w, h: fs.y + fs.h - (B.y + B.h), d: fs.d });
-            if (B.y > fs.y) s.push({ x: fs.x, y: fs.y, z: fs.z, w: fs.w, h: B.y - fs.y, d: fs.d });
-            if (B.x + B.w < fs.x + fs.w) s.push({ x: B.x + B.w, y: fs.y, z: fs.z, w: fs.x + fs.w - (B.x + B.w), h: fs.h, d: fs.d });
-            if (B.x > fs.x) s.push({ x: fs.x, y: fs.y, z: fs.z, w: B.x - fs.x, h: fs.h, d: fs.d });
-            if (B.z + B.d < fs.z + fs.d) s.push({ x: fs.x, y: fs.y, z: B.z + B.d, w: fs.w, h: fs.h, d: fs.z + fs.d - (B.z + B.d) });
-            if (B.z > fs.z) s.push({ x: fs.x, y: fs.y, z: fs.z, w: fs.w, h: fs.h, d: B.z - fs.z });
-            return s;
-        }
-        function pruneSpaces(spaces) {
-            let pruned = [];
-            for (let i = 0; i < spaces.length; i++) {
-                let s1 = spaces[i]; let isEnclosed = false;
-                for (let j = 0; j < spaces.length; j++) {
-                    if (i === j) continue; let s2 = spaces[j];
-                    const isIdentical = ( Math.abs(s1.x - s2.x) < 0.001 && Math.abs(s1.y - s2.y) < 0.001 && Math.abs(s1.z - s2.z) < 0.001 && Math.abs(s1.w - s2.w) < 0.001 && Math.abs(s1.h - s2.h) < 0.001 && Math.abs(s1.d - s2.d) < 0.001 );
-                    if (isIdentical) { if (i > j) { isEnclosed = true; break; } } 
-                    else if ( s1.x >= s2.x - 0.001 && s1.y >= s2.y - 0.001 && s1.z >= s2.z - 0.001 && s1.x + s1.w <= s2.x + s2.w + 0.001 && s1.y + s1.h <= s2.y + s2.h + 0.001 && s1.z + s1.d <= s2.z + s2.d + 0.001 ) {
-                        isEnclosed = true; break;
-                    }
-                }
-                if (!isEnclosed) pruned.push(s1);
-            }
-            return pruned;
-        }
-
-        function packContainer() {
-            clear3DBoxes();
-
-            const sb = [...boxes].sort((a, b) => {
-                const volA = a.w * a.h * a.d; const volB = b.w * b.h * b.d;
-                if (Math.abs(volB - volA) > 0.0001) return volB - volA; 
-                return Math.max(b.w, b.h, b.d) - Math.max(a.w, a.h, a.d);
-            });
-
-            let fs = [{ x: 0, y: 0, z: 0, w: containerSize.w, h: containerSize.h, d: containerSize.d }];
-            let packedCount = 0; let usedCbm = 0; let overflowCount = 0;
-
-            for (let box of sb) {
-                let bestSpaceIdx = -1; let bestRot = null;
-                fs.sort((a, b) => {
-                    if (Math.abs(a.y - b.y) > 0.001) return a.y - b.y; 
-                    if (Math.abs(a.z - b.z) > 0.001) return a.z - b.z; 
-                    return a.x - b.x;                                  
-                });
-
-                const rots = [
-                    { w: box.w, h: box.h, d: box.d }, { w: box.w, h: box.d, d: box.h }, 
-                    { w: box.h, h: box.w, d: box.d }, { w: box.h, h: box.d, d: box.w }, 
-                    { w: box.d, h: box.w, d: box.h }, { w: box.d, h: box.h, d: box.w }  
-                ];
-                
-                const ur = [];
-                for (let r of rots) {
-                    if (!ur.some(u => Math.abs(u.w - r.w) < 0.001 && Math.abs(u.h - r.h) < 0.001 && Math.abs(u.d - r.d) < 0.001)) ur.push(r);
-                }
-
-                for (let i = 0; i < fs.length; i++) {
-                    for (let r of ur) { if (r.w <= fs[i].w + 0.001 && r.h <= fs[i].h + 0.001 && r.d <= fs[i].d + 0.001) { bestSpaceIdx = i; bestRot = r; break; } }
-                    if (bestSpaceIdx !== -1) break;
-                }
-
-                if (bestSpaceIdx !== -1) {
-                    let pb = { ...box, x: fs[bestSpaceIdx].x, y: fs[bestSpaceIdx].y, z: fs[bestSpaceIdx].z, w: bestRot.w, h: bestRot.h, d: bestRot.d };
-                    globalPackedBoxes.push(pb); 
-                    packedCount++; usedCbm += (pb.w * pb.h * pb.d);
-
-                    let nfs = [];
-                    for (let f of fs) { if (intersects(f, pb)) nfs.push(...splitSpace(f, pb)); else nfs.push(f); }
-                    fs = pruneSpaces(nfs);
-                } else { overflowCount++; }
-            }
-
-            stepDataMap = {};
-            let step = 1;
-            let currentGroup = null;
-
-            for (let i = 0; i < globalPackedBoxes.length; i++) {
-                let box = globalPackedBoxes[i];
-                let boxKey = `${box.orig_l} x ${box.orig_w} x ${box.orig_h}`;
-                
-                if (currentGroup && currentGroup.size === boxKey && currentGroup.color === box.color) {
-                    currentGroup.qty += 1;
-                    box.step = step;
-                } else {
-                    if (currentGroup) {
-                        stepDataMap[step] = currentGroup;
-                        step++;
-                    }
-                    currentGroup = { size: boxKey, color: box.color, qty: 1 };
-                    box.step = step;
-                }
-                create3DBox(box, box.x, box.y, box.z, box.step);
-            }
-            if (currentGroup) {
-                stepDataMap[step] = currentGroup;
-            }
-            totalSteps = step;
-            currentStep = totalSteps;
-
-            updateStats(usedCbm);
-            
-            if (packedCount > 0) {
-                document.getElementById('download-tally-btn').classList.remove('hidden');
-                document.getElementById('playback-controls').classList.remove('hidden');
-                updateStepVisualization();
-            }
-
-            if (overflowCount > 0) showMessage(`Packed ${packedCount} items. ${overflowCount} overflowed!`, 'text-red-600 font-bold');
-            else showMessage(`Success! All ${packedCount} items packed.`, 'text-green-600 font-bold');
-        }
-
-        function prevStep() {
-            if (currentStep > 1) {
-                currentStep--;
-                updateStepVisualization();
-            }
-        }
-
-        function nextStep() {
-            if (currentStep < totalSteps) {
-                currentStep++;
-                updateStepVisualization();
-            }
-        }
-
-        function showAllSteps() {
-            currentStep = totalSteps;
-            updateStepVisualization();
-        }
-
-        function updateStepVisualization() {
-            boxGroup.children.forEach(mesh => {
-                if (mesh.userData.step <= currentStep) {
-                    mesh.visible = true;
-                } else {
-                    mesh.visible = false;
-                }
-            });
-
-            document.getElementById('step-indicator').innerText = `Step ${currentStep} / ${totalSteps}`;
-            
-            if (stepDataMap[currentStep]) {
-                let info = stepDataMap[currentStep];
-                document.getElementById('step-details').innerHTML = `Load <span class="text-blue-600 mx-1 text-lg">${info.qty}</span> cartons of <br/> [ ${info.size} cm ]`;
-            } else {
-                document.getElementById('step-details').innerText = "All items loaded.";
-            }
-        }
-
-        function downloadTallySheet() {
-            if (Object.keys(stepDataMap).length === 0) return alert("No packed data available!");
-
-            let csvStr = "Step,Box Size (L x W x H cm),Quantity to Load,Color Code\n";
-            for (let s = 1; s <= totalSteps; s++) {
-                let r = stepDataMap[s];
-                csvStr += `Step ${s},"${r.size}",${r.qty},${r.color}\n`;
-            }
-
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(new Blob([csvStr], { type: 'text/csv;charset=utf-8;' }));
-            link.download = "Loading_Tally_Sheet.csv";
-            link.click();
-        }
-
-        function updateStats(usedCbm) {
-            document.getElementById('stat-used-cbm').innerText = usedCbm.toFixed(2);
-            const efficiency = Math.min(100, Math.max(0, (usedCbm / containerSize.maxCbm) * 100));
-            document.getElementById('stat-efficiency-text').innerText = efficiency.toFixed(1) + '%';
-            document.getElementById('stat-efficiency-bar').style.width = efficiency + '%';
-        }
-
-        function clear3DBoxes() {
-            while(boxGroup.children.length > 0){ 
-                const child = boxGroup.children[0];
-                boxGroup.remove(child); 
-                if(child.geometry) child.geometry.dispose();
-                if(child.material) {
-                    if(Array.isArray(child.material)) child.material.forEach(m => m.dispose());
-                    else child.material.dispose();
-                }
-            }
-            globalPackedBoxes = [];
-            stepDataMap = {};
-            currentStep = 0;
-            totalSteps = 0;
-        }
-
-        function create3DBox(bd, x, y, z, stepNum) {
-            const geo = new THREE.BoxGeometry(bd.w, bd.h, bd.d);
-            const mat = new THREE.MeshLambertMaterial({ color: bd.color, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
-            const mesh = new THREE.Mesh(geo, mat);
-
-            const edges = new THREE.EdgesGeometry(geo);
-            mesh.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1, transparent: true, opacity: 0.3 })));
-
-            mesh.position.set(-containerSize.w / 2 + x + bd.w / 2, -containerSize.h / 2 + y + bd.h / 2, -containerSize.d / 2 + z + bd.d / 2);
-            mesh.userData.step = stepNum; 
-            boxGroup.add(mesh);
-        }
-
-        function showMessage(text, classes) {
-            const msgEl = document.getElementById('message-box');
-            msgEl.className = `mb-2 text-sm text-center min-h-[1.5rem] font-medium ${classes}`;
-            msgEl.innerText = text;
-        }
-
-        function onWindowResize() {
-            const container = document.getElementById('canvas-container');
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update(); 
-            renderer.render(scene, camera);
-        }
-
-        window.onload = init;
-    </script>
+  function animate() {
+    requestAnimationFrame(animate);
+    if(controls)controls.update();
+    if(renderer&&scene&&camera)renderer.render(scene,camera);
+  }
+  init3D();
+  updateContainerLabels();
+})();
+</script>
 </body>
 </html>
