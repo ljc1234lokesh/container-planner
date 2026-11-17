@@ -10,213 +10,384 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; font-family: 'Inter', sans-serif; }
-        #canvas-container { width: 100%; height: 100%; display: block; }
-        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
-        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 3px; }
         .hidden { display: none !important; }
     </style>
 </head>
-<body class="bg-gray-100 text-gray-800 flex flex-col md:flex-row h-screen w-screen overflow-hidden">
-    <aside class="w-full md:w-80 lg:w-96 bg-white shadow-xl flex flex-col z-10 h-full overflow-y-auto">
-        <div class="p-6 flex-1 flex flex-col gap-6">
+<body class="flex flex-row h-screen w-screen overflow-hidden bg-gray-900 text-gray-800">
+
+    <!-- Sidebar Controls -->
+    <aside class="w-80 lg:w-96 bg-white shadow-xl h-full overflow-y-auto shrink-0 z-10 flex flex-col">
+        <div class="p-5 flex flex-col gap-5">
+            
             <header>
                 <h1 class="text-2xl font-bold text-gray-900 mb-1">Container Planner</h1>
-                <p class="text-sm text-gray-500">Plan 3D box stuffing.</p>
+                <p class="text-sm text-gray-500">Plan 3D box stuffing and logistics.</p>
             </header>
+
+            <!-- Container Settings -->
             <section class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <h2 class="text-sm font-semibold text-gray-700 uppercase mb-3">Container Selection</h2>
+                <h2 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Container Selection</h2>
                 <select id="container-type" onchange="updateContainerSize()" class="w-full px-2 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="20">20' feet (28 cbm)</option>
                     <option value="40">40' feet (58 cbm)</option>
                     <option value="40hc">40' feet High Cube (68 cbm)</option>
                 </select>
             </section>
+
+            <!-- Data Upload -->
             <section class="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <h2 class="text-sm font-semibold text-gray-700 uppercase mb-3">Upload Data</h2>
-                <input type="file" id="csv-file" accept=".csv" class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700">
-                <div class="mt-3 flex justify-between">
-                    <p class="text-xs text-gray-400">Upload CSV data</p>
-                    <button onclick="downloadTemplate()" class="text-xs text-blue-600 font-semibold hover:underline">Download Template</button>
+                <h2 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Upload Data</h2>
+                <input type="file" id="csv-file" accept=".csv" class="w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 cursor-pointer">
+                <div class="mt-2 text-right">
+                    <button onclick="downloadTemplate()" class="text-xs text-blue-600 font-semibold hover:underline">Download CSV Template</button>
                 </div>
             </section>
-            <section class="flex-1 flex flex-col">
-                <h2 class="text-sm font-semibold text-gray-700 uppercase mb-3">Packing Stats</h2>
-                <div class="grid grid-cols-2 gap-3 mb-4">
+
+            <!-- Stats Panel -->
+            <section>
+                <h2 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Packing Stats</h2>
+                <div class="grid grid-cols-2 gap-3 mb-3">
                     <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                        <div class="text-xs text-blue-500 font-semibold">TOTAL CBM</div>
-                        <div id="stat-total-cbm" class="text-lg font-bold text-blue-700">0.00</div>
+                        <div class="text-[10px] text-blue-500 font-bold tracking-wide">TOTAL CBM</div>
+                        <div id="stat-total-cbm" class="text-lg font-black text-blue-700">0.00</div>
                     </div>
                     <div class="bg-green-50 p-3 rounded-lg border border-green-100">
-                        <div class="text-xs text-green-500 font-semibold">USED CBM</div>
-                        <div id="stat-used-cbm" class="text-lg font-bold text-green-700">0.00</div>
+                        <div class="text-[10px] text-green-500 font-bold tracking-wide">USED CBM</div>
+                        <div id="stat-used-cbm" class="text-lg font-black text-green-700">0.00</div>
                     </div>
                     <div class="bg-purple-50 p-3 rounded-lg border border-purple-100 col-span-2">
-                        <div class="text-xs text-purple-500 font-semibold">EFFICIENCY</div>
+                        <div class="text-[10px] text-purple-500 font-bold tracking-wide mb-1">EFFICIENCY</div>
                         <div class="flex items-center gap-2">
-                            <div class="flex-1 bg-purple-200 rounded-full h-2"><div id="stat-efficiency-bar" class="bg-purple-600 h-2 rounded-full" style="width:0%"></div></div>
+                            <div class="flex-1 bg-purple-200 rounded-full h-2">
+                                <div id="stat-efficiency-bar" class="bg-purple-600 h-2 rounded-full" style="width: 0%"></div>
+                            </div>
                             <span id="stat-efficiency-text" class="text-sm font-bold text-purple-700">0%</span>
                         </div>
                     </div>
                 </div>
             </section>
-                <section class="mt-4 pb-4">
-                <div id="message-box" class="mb-3 text-sm text-center min-h-[1.5rem]"></div>
-                <button onclick="startPlanning()" class="w-full bg-blue-600 text-white font-bold py-3 rounded-lg shadow-lg">Start Planning</button>
-                <button id="download-tally-btn" onclick="downloadTallySheet()" class="w-full bg-green-600 text-white font-bold py-3 rounded-lg shadow-lg mt-3 hidden">Download Tally Sheet</button>
+
+            <!-- Actions (Buttons) -->
+            <section class="mt-2 pb-4">
+                <div id="message-box" class="mb-2 text-sm text-center min-h-[1.5rem] font-medium"></div>
+                <button onclick="startPlanning()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-bold py-3 rounded-lg shadow-md transition-colors">
+                    Start Planning
+                </button>
+                <button id="download-tally-btn" onclick="downloadTallySheet()" class="w-full bg-green-600 hover:bg-green-700 text-white text-base font-bold py-3 rounded-lg shadow-md mt-3 hidden transition-colors">
+                    Download Tally Sheet
+                </button>
             </section>
+            
         </div>
     </aside>
-    <main class="flex-1 relative bg-gray-900" id="canvas-container">
-        <div class="absolute top-4 left-4 text-white/50 text-sm pointer-events-none z-10 bg-black/20 p-2 rounded">Left Click: Rotate | Right Click: Pan | Scroll: Zoom</div>
+
+    <!-- 3D Visualization Area -->
+    <main class="flex-1 relative h-full w-full" id="canvas-container">
+        <div class="absolute top-4 left-4 text-white/60 text-xs md:text-sm pointer-events-none z-10 bg-black/40 px-3 py-1.5 rounded backdrop-blur-sm shadow-sm border border-white/10">
+            Touch/Left Click: Rotate | Right Click: Pan | Scroll/Pinch: Zoom
+        </div>
     </main>
+
     <script>
-    let containerSize = { w: 5.89, h: 2.39, d: 2.35, maxCbm: 28 };
-    let boxes = []; let globalPackedBoxes = []; let boxIdCounter = 0;
-    let scene, camera, renderer, controls, containerMesh, boxGroup;
+        let containerSize = { w: 5.89, h: 2.39, d: 2.35, maxCbm: 28 };
+        let boxes = [];
+        let globalPackedBoxes = [];
+        let boxIdCounter = 0;
+        
+        let scene, camera, renderer, controls, containerMesh, boxGroup;
 
-    function init() { initThreeJS(); updateContainerSize(); animate(); }
+        function init() {
+            initThreeJS();
+            updateContainerSize();
+            animate();
+        }
 
-    function initThreeJS() {
-        const c = document.getElementById('canvas-container');
-        scene = new THREE.Scene(); scene.background = new THREE.Color(0x1a202c);
-        camera = new THREE.PerspectiveCamera(45, c.clientWidth / c.clientHeight, 0.1, 1000); camera.position.set(30, 20, 35);
-        renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(c.clientWidth, c.clientHeight);
-        c.appendChild(renderer.domElement);
-        controls = new THREE.OrbitControls(camera, renderer.domElement); controls.enableDamping = true; controls.target.set(0,0,0);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        const dL = new THREE.DirectionalLight(0xffffff, 0.6); dL.position.set(10, 20, 10); scene.add(dL);
-        boxGroup = new THREE.Group(); scene.add(boxGroup); window.addEventListener('resize', onWindowResize, false);
-    }
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x111827);
 
-    function updateContainerSize() {
-        const t = document.getElementById('container-type').value;
-        if (t === '20') containerSize = { w: 5.89, h: 2.39, d: 2.35, maxCbm: 28 };
-        else if (t === '40') containerSize = { w: 12.03, h: 2.39, d: 2.35, maxCbm: 58 };
-        else if (t === '40hc') containerSize = { w: 12.03, h: 2.69, d: 2.35, maxCbm: 68 };
-        if (containerMesh) scene.remove(containerMesh);
-        const geo = new THREE.BoxGeometry(containerSize.w, containerSize.h, containerSize.d);
-        containerMesh = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, transparent: true, opacity: 0.8 }));
-        containerMesh.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: 0x4a5568, transparent: true, opacity: 0.1, side: THREE.DoubleSide })));
-        scene.add(containerMesh);
-        document.getElementById('stat-total-cbm').innerText = containerSize.maxCbm.toFixed(2);
-        updateStats(0); clear3DBoxes(); document.getElementById('download-tally-btn').classList.add('hidden');
-    }
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+            camera.position.set(30, 20, 35);
 
-    function downloadTemplate() {
-        const lnk = document.createElement("a");
-        lnk.href = URL.createObjectURL(new Blob(["Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\nBox,50,40,30,20,#3b82f6"], { type: 'text/csv' }));
-        lnk.download = "template.csv"; lnk.click();
-    }
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.appendChild(renderer.domElement);
 
-    function startPlanning() {
-        const file = document.getElementById('csv-file').files[0];
-        if (!file) return showMessage('Select a CSV file first.', 'text-red-500');
-        Papa.parse(file, { skipEmptyLines: true, header: true, complete: function(res) {
-            boxes = []; boxIdCounter = 0; const cMap = {}; 
-            res.data.forEach((r) => {
-                const gV = (kw) => { const k = Object.keys(r).find(x => kw.some(w => x.toLowerCase().includes(w))); return k ? r[k] : undefined; };
-                const l = parseFloat(gV(['length','l (','len'])), w = parseFloat(gV(['width','w (','wid'])), h = parseFloat(gV(['height','h (','hgt'])), q = parseInt(gV(['quantity','qty']));
-                if (isNaN(l) || isNaN(w) || isNaN(h) || isNaN(q)) return;
-                let c = gV(['color']);
-                if (c && c.trim() !== '') c = c.trim();
-                else { const dk = `${l}x${w}x${h}`; if(!cMap[dk]) cMap[dk]=`hsl(${Math.floor(Math.random()*360)},75%,55%)`; c = cMap[dk]; }
-                for (let i = 0; i < q; i++) boxes.push({ id: boxIdCounter++, orig_l: l, orig_w: w, orig_h: h, w: l/100, h: h/100, d: w/100, color: c });
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(0, 0, 0);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.6);
+            dirLight.position.set(10, 20, 10);
+            scene.add(dirLight);
+            
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.4);
+            dirLight2.position.set(-10, 10, -10);
+            scene.add(dirLight2);
+
+            boxGroup = new THREE.Group();
+            scene.add(boxGroup);
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function updateContainerSize() {
+            const type = document.getElementById('container-type').value;
+            if (type === '20') { containerSize = { w: 5.89, h: 2.39, d: 2.35, maxCbm: 28 }; }
+            else if (type === '40') { containerSize = { w: 12.03, h: 2.39, d: 2.35, maxCbm: 58 }; }
+            else if (type === '40hc') { containerSize = { w: 12.03, h: 2.69, d: 2.35, maxCbm: 68 }; }
+
+            if (containerMesh) scene.remove(containerMesh);
+
+            const geo = new THREE.BoxGeometry(containerSize.w, containerSize.h, containerSize.d);
+            const edges = new THREE.EdgesGeometry(geo);
+            containerMesh = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff, linewidth: 2, transparent: true, opacity: 0.6 }));
+            
+            const fillMat = new THREE.MeshBasicMaterial({ color: 0x374151, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+            containerMesh.add(new THREE.Mesh(geo, fillMat));
+
+            scene.add(containerMesh);
+            
+            document.getElementById('stat-total-cbm').innerText = containerSize.maxCbm.toFixed(2);
+            updateStats(0);
+            clear3DBoxes();
+            
+            showMessage('Container selected. Ready to pack.', 'text-gray-500');
+            document.getElementById('download-tally-btn').classList.add('hidden');
+        }
+
+        function downloadTemplate() {
+            const template = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\nStandard Box,50,40,30,20,#3b82f6\nLarge Box,100,50,50,10,#10b981\nPallet Base,120,100,15,5,#f59e0b";
+            const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "packing_template.csv";
+            link.click();
+        }
+
+        function startPlanning() {
+            const fileInput = document.getElementById('csv-file');
+            if (!fileInput.files.length) { showMessage('Please select a CSV file first!', 'text-red-500'); return; }
+
+            showMessage('Processing...', 'text-blue-500');
+
+            Papa.parse(fileInput.files[0], {
+                skipEmptyLines: true, header: true,
+                complete: function(results) {
+                    boxes = []; boxIdCounter = 0; const colorMap = {}; 
+                    
+                    results.data.forEach((row) => {
+                        const getVal = (keywords) => {
+                            const key = Object.keys(row).find(k => keywords.some(kw => k.toLowerCase().includes(kw)));
+                            return key ? row[key] : undefined;
+                        };
+
+                        const lStr = getVal(['length', 'l (', 'len']);
+                        const wStr = getVal(['width', 'w (', 'wid']);
+                        const hStr = getVal(['height', 'h (', 'hgt']);
+                        const qStr = getVal(['quantity', 'qty']);
+                        const cStr = getVal(['color']);
+
+                        const l_cm = parseFloat(lStr); const w_cm = parseFloat(wStr);
+                        const h_cm = parseFloat(hStr); const qty = parseInt(qStr);
+                        
+                        if (isNaN(l_cm) || isNaN(w_cm) || isNaN(h_cm) || isNaN(qty)) return;
+
+                        let color = (cStr && cStr.trim() !== '') ? cStr.trim() : null;
+                        if (!color) {
+                            const dimKey = `${l_cm}x${w_cm}x${h_cm}`;
+                            if (!colorMap[dimKey]) { colorMap[dimKey] = `hsl(${Math.floor(Math.random() * 360)}, 75%, 55%)`; }
+                            color = colorMap[dimKey];
+                        }
+
+                        for (let i = 0; i < qty; i++) {
+                            boxes.push({
+                                id: boxIdCounter++, orig_l: l_cm, orig_w: w_cm, orig_h: h_cm,
+                                w: l_cm/100, h: h_cm/100, d: w_cm/100, color: color
+                            });
+                        }
+                    });
+
+                    if (boxes.length === 0) { showMessage('No valid data found.', 'text-red-500'); return; }
+                    packContainer();
+                }
             });
-            if (boxes.length === 0) return showMessage('No valid data.', 'text-red-500');
-            packContainer();
-        }});
-    }
-       function downloadTallySheet() {
-        if (globalPackedBoxes.length === 0) return alert("No packed data!");
-        let rData = []; let cg = null; let stp = 1;
-        for (let b of globalPackedBoxes) {
-            let k = `${b.orig_l} x ${b.orig_w} x ${b.orig_h}`;
-            if (cg && cg.size === k && cg.color === b.color) cg.qty += 1;
-            else { if (cg) rData.push(cg); cg = { step: stp++, size: k, qty: 1, color: b.color }; }
         }
-        if (cg) rData.push(cg);
-        let csv = "Step,Box Size (L x W x H cm),Quantity,Color\n";
-        rData.forEach(r => csv += `Step ${r.step},"${r.size}",${r.qty},${r.color}\n`);
-        const lnk = document.createElement("a"); lnk.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'})); lnk.download = "Tally_Sheet.csv"; lnk.click();
-    }
 
-    function updateStats(used) {
-        document.getElementById('stat-used-cbm').innerText = used.toFixed(2);
-        const eff = Math.min(100, Math.max(0, (used / containerSize.maxCbm) * 100));
-        document.getElementById('stat-efficiency-text').innerText = eff.toFixed(1) + '%';
-        document.getElementById('stat-efficiency-bar').style.width = eff + '%';
-    }
+        function downloadTallySheet() {
+            if (globalPackedBoxes.length === 0) return alert("No packed data available!");
 
-    function clear3DBoxes() { while(boxGroup.children.length > 0) boxGroup.remove(boxGroup.children[0]); globalPackedBoxes = []; }
-
-    function intersects(fs, B) { return !(B.x >= fs.x+fs.w-0.001 || B.x+B.w <= fs.x+0.001 || B.y >= fs.y+fs.h-0.001 || B.y+B.h <= fs.y+0.001 || B.z >= fs.z+fs.d-0.001 || B.z+B.d <= fs.z+0.001); }
-    
-    function splitSpace(fs, B) {
-        let s = [];
-        if (B.y+B.h < fs.y+fs.h) s.push({ x:fs.x, y:B.y+B.h, z:fs.z, w:fs.w, h:fs.y+fs.h-(B.y+B.h), d:fs.d });
-        if (B.y > fs.y) s.push({ x:fs.x, y:fs.y, z:fs.z, w:fs.w, h:B.y-fs.y, d:fs.d });
-        if (B.x+B.w < fs.x+fs.w) s.push({ x:B.x+B.w, y:fs.y, z:fs.z, w:fs.x+fs.w-(B.x+B.w), h:fs.h, d:fs.d });
-        if (B.x > fs.x) s.push({ x:fs.x, y:fs.y, z:fs.z, w:B.x-fs.x, h:fs.h, d:fs.d });
-        if (B.z+B.d < fs.z+fs.d) s.push({ x:fs.x, y:fs.y, z:B.z+B.d, w:fs.w, h:fs.h, d:fs.z+fs.d-(B.z+B.d) });
-        if (B.z > fs.z) s.push({ x:fs.x, y:fs.y, z:fs.z, w:fs.w, h:fs.h, d:B.z-fs.z });
-        return s;
-    }
-
-    function pruneSpaces(sp) {
-        let p = [];
-        for (let i = 0; i < sp.length; i++) {
-            let s1 = sp[i], enc = false;
-            for (let j = 0; j < sp.length; j++) {
-                if (i === j) continue; let s2 = sp[j];
-                if (Math.abs(s1.x-s2.x)<0.001 && Math.abs(s1.y-s2.y)<0.001 && Math.abs(s1.z-s2.z)<0.001 && Math.abs(s1.w-s2.w)<0.001 && Math.abs(s1.h-s2.h)<0.001 && Math.abs(s1.d-s2.d)<0.001) { if(i>j) { enc=true; break; } }
-                else if (s1.x>=s2.x-0.001 && s1.y>=s2.y-0.001 && s1.z>=s2.z-0.001 && s1.x+s1.w<=s2.x+s2.w+0.001 && s1.y+s1.h<=s2.y+s2.h+0.001 && s1.z+s1.d<=s2.z+s2.d+0.001) { enc=true; break; }
+            let reportData = []; let currentGroup = null; let step = 1;
+            for (let i = 0; i < globalPackedBoxes.length; i++) {
+                let box = globalPackedBoxes[i];
+                let boxKey = `${box.orig_l} x ${box.orig_w} x ${box.orig_h}`;
+                
+                if (currentGroup && currentGroup.size === boxKey && currentGroup.color === box.color) {
+                    currentGroup.qty += 1;
+                } else {
+                    if (currentGroup) reportData.push(currentGroup);
+                    currentGroup = { step: step++, size: boxKey, qty: 1, color: box.color };
+                }
             }
-            if (!enc) p.push(s1);
+            if (currentGroup) reportData.push(currentGroup);
+
+            let csvStr = "Step,Box Size (L x W x H cm),Quantity to Load,Color Code\n";
+            reportData.forEach(row => { csvStr += `Step ${row.step},"${row.size}",${row.qty},${row.color}\n`; });
+
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(new Blob([csvStr], { type: 'text/csv;charset=utf-8;' }));
+            link.download = "Loading_Tally_Sheet.csv";
+            link.click();
         }
-        return p;
-    }
 
-    function packContainer() {
-        clear3DBoxes();
-        const sb = [...boxes].sort((a,b) => { const vA=a.w*a.h*a.d, vB=b.w*b.h*b.d; return Math.abs(vB-vA)>0.0001 ? vB-vA : Math.max(b.w,b.h,b.d)-Math.max(a.w,a.h,a.d); });
-        let fs = [{ x:0, y:0, z:0, w:containerSize.w, h:containerSize.h, d:containerSize.d }];
-        let pCount = 0, uCbm = 0, oCount = 0;
-        for (let b of sb) {
-            let bIdx = -1, bRot = null;
-            fs.sort((a,b) => { if(Math.abs(a.y-b.y)>0.001) return a.y-b.y; if(Math.abs(a.z-b.z)>0.001) return a.z-b.z; return a.x-b.x; });
-            const ur = [];
-            for (let r of [{w:b.w,h:b.h,d:b.d}, {w:b.w,h:b.d,d:b.h}, {w:b.h,h:b.w,d:b.d}, {w:b.h,h:b.d,d:b.w}, {w:b.d,h:b.w,d:b.h}, {w:b.d,h:b.h,d:b.w}]) {
-                if (!ur.some(u => Math.abs(u.w-r.w)<0.001 && Math.abs(u.h-r.h)<0.001 && Math.abs(u.d-r.d)<0.001)) ur.push(r);
-            }
-            for (let i = 0; i < fs.length; i++) {
-                for (let r of ur) { if (r.w<=fs[i].w+0.001 && r.h<=fs[i].h+0.001 && r.d<=fs[i].d+0.001) { bIdx = i; bRot = r; break; } }
-                if (bIdx !== -1) break;
-            }
-            if (bIdx !== -1) {
-                let pb = { ...b, x:fs[bIdx].x, y:fs[bIdx].y, z:fs[bIdx].z, w:bRot.w, h:bRot.h, d:bRot.d };
-                create3DBox(pb, pb.x, pb.y, pb.z); globalPackedBoxes.push(pb); pCount++; uCbm += (pb.w*pb.h*pb.d);
-                let nfs = []; for (let f of fs) { if (intersects(f, pb)) nfs.push(...splitSpace(f, pb)); else nfs.push(f); }
-                fs = pruneSpaces(nfs);
-            } else oCount++;
+        function updateStats(usedCbm) {
+            document.getElementById('stat-used-cbm').innerText = usedCbm.toFixed(2);
+            const efficiency = Math.min(100, Math.max(0, (usedCbm / containerSize.maxCbm) * 100));
+            document.getElementById('stat-efficiency-text').innerText = efficiency.toFixed(1) + '%';
+            document.getElementById('stat-efficiency-bar').style.width = efficiency + '%';
         }
-        updateStats(uCbm);
-        if (pCount > 0) document.getElementById('download-tally-btn').classList.remove('hidden');
-        if (oCount > 0) showMessage(`Packed ${pCount} items. ${oCount} overflowed!`, 'text-red-500 font-bold');
-        else showMessage(`Success! ${pCount} items packed.`, 'text-green-500 font-bold');
-    }
 
-    function create3DBox(bd, x, y, z) {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(bd.w, bd.h, bd.d), new THREE.MeshLambertMaterial({ color: bd.color, polygonOffset: true, polygonOffsetFactor: 1 }));
-        m.add(new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(bd.w, bd.h, bd.d)), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 })));
-        m.position.set(-containerSize.w/2+x+bd.w/2, -containerSize.h/2+y+bd.h/2, -containerSize.d/2+z+bd.d/2);
-        boxGroup.add(m);
-    }
+        function clear3DBoxes() {
+            while(boxGroup.children.length > 0){ 
+                const child = boxGroup.children[0];
+                boxGroup.remove(child); 
+                if(child.geometry) child.geometry.dispose();
+                if(child.material) {
+                    if(Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                    else child.material.dispose();
+                }
+            }
+            globalPackedBoxes = [];
+        }
 
-    function showMessage(t, c) { const m = document.getElementById('message-box'); m.className = `mb-3 text-sm text-center ${c}`; m.innerText = t; }
-    function onWindowResize() { const c = document.getElementById('canvas-container'); camera.aspect = c.clientWidth / c.clientHeight; camera.updateProjectionMatrix(); renderer.setSize(c.clientWidth, c.clientHeight); }
-    function animate() { requestAnimationFrame(animate); controls.update(); renderer.render(scene, camera); }
-    window.onload = init;
-</script>
+        function intersects(fs, B) {
+            return !( B.x >= fs.x + fs.w - 0.001 || B.x + B.w <= fs.x + 0.001 || B.y >= fs.y + fs.h - 0.001 || B.y + B.h <= fs.y + 0.001 || B.z >= fs.z + fs.d - 0.001 || B.z + B.d <= fs.z + 0.001 );
+        }
+
+        function splitSpace(fs, B) {
+            let s = [];
+            if (B.y + B.h < fs.y + fs.h) s.push({ x: fs.x, y: B.y + B.h, z: fs.z, w: fs.w, h: fs.y + fs.h - (B.y + B.h), d: fs.d });
+            if (B.y > fs.y) s.push({ x: fs.x, y: fs.y, z: fs.z, w: fs.w, h: B.y - fs.y, d: fs.d });
+            if (B.x + B.w < fs.x + fs.w) s.push({ x: B.x + B.w, y: fs.y, z: fs.z, w: fs.x + fs.w - (B.x + B.w), h: fs.h, d: fs.d });
+            if (B.x > fs.x) s.push({ x: fs.x, y: fs.y, z: fs.z, w: B.x - fs.x, h: fs.h, d: fs.d });
+            if (B.z + B.d < fs.z + fs.d) s.push({ x: fs.x, y: fs.y, z: B.z + B.d, w: fs.w, h: fs.h, d: fs.z + fs.d - (B.z + B.d) });
+            if (B.z > fs.z) s.push({ x: fs.x, y: fs.y, z: fs.z, w: fs.w, h: fs.h, d: B.z - fs.z });
+            return s;
+        }
+
+        function pruneSpaces(spaces) {
+            let pruned = [];
+            for (let i = 0; i < spaces.length; i++) {
+                let s1 = spaces[i]; let isEnclosed = false;
+                for (let j = 0; j < spaces.length; j++) {
+                    if (i === j) continue; let s2 = spaces[j];
+                    const isIdentical = ( Math.abs(s1.x - s2.x) < 0.001 && Math.abs(s1.y - s2.y) < 0.001 && Math.abs(s1.z - s2.z) < 0.001 && Math.abs(s1.w - s2.w) < 0.001 && Math.abs(s1.h - s2.h) < 0.001 && Math.abs(s1.d - s2.d) < 0.001 );
+                    if (isIdentical) { if (i > j) { isEnclosed = true; break; } } 
+                    else if ( s1.x >= s2.x - 0.001 && s1.y >= s2.y - 0.001 && s1.z >= s2.z - 0.001 && s1.x + s1.w <= s2.x + s2.w + 0.001 && s1.y + s1.h <= s2.y + s2.h + 0.001 && s1.z + s1.d <= s2.z + s2.d + 0.001 ) {
+                        isEnclosed = true; break;
+                    }
+                }
+                if (!isEnclosed) pruned.push(s1);
+            }
+            return pruned;
+        }
+
+        function packContainer() {
+            clear3DBoxes();
+
+            const sb = [...boxes].sort((a, b) => {
+                const volA = a.w * a.h * a.d; const volB = b.w * b.h * b.d;
+                if (Math.abs(volB - volA) > 0.0001) return volB - volA; 
+                return Math.max(b.w, b.h, b.d) - Math.max(a.w, a.h, a.d);
+            });
+
+            let fs = [{ x: 0, y: 0, z: 0, w: containerSize.w, h: containerSize.h, d: containerSize.d }];
+            let packedCount = 0; let usedCbm = 0; let overflowCount = 0;
+
+            for (let box of sb) {
+                let bestSpaceIdx = -1; let bestRot = null;
+                fs.sort((a, b) => {
+                    if (Math.abs(a.y - b.y) > 0.001) return a.y - b.y; 
+                    if (Math.abs(a.z - b.z) > 0.001) return a.z - b.z; 
+                    return a.x - b.x;                                  
+                });
+
+                const rots = [
+                    { w: box.w, h: box.h, d: box.d }, { w: box.w, h: box.d, d: box.h }, 
+                    { w: box.h, h: box.w, d: box.d }, { w: box.h, h: box.d, d: box.w }, 
+                    { w: box.d, h: box.w, d: box.h }, { w: box.d, h: box.h, d: box.w }  
+                ];
+                
+                const ur = [];
+                for (let r of rots) {
+                    if (!ur.some(u => Math.abs(u.w - r.w) < 0.001 && Math.abs(u.h - r.h) < 0.001 && Math.abs(u.d - r.d) < 0.001)) ur.push(r);
+                }
+
+                for (let i = 0; i < fs.length; i++) {
+                    for (let r of ur) { if (r.w <= fs[i].w + 0.001 && r.h <= fs[i].h + 0.001 && r.d <= fs[i].d + 0.001) { bestSpaceIdx = i; bestRot = r; break; } }
+                    if (bestSpaceIdx !== -1) break;
+                }
+
+                if (bestSpaceIdx !== -1) {
+                    let pb = { ...box, x: fs[bestSpaceIdx].x, y: fs[bestSpaceIdx].y, z: fs[bestSpaceIdx].z, w: bestRot.w, h: bestRot.h, d: bestRot.d };
+                    create3DBox(pb, pb.x, pb.y, pb.z);
+                    globalPackedBoxes.push(pb); 
+                    packedCount++; usedCbm += (pb.w * pb.h * pb.d);
+
+                    let nfs = [];
+                    for (let f of fs) { if (intersects(f, pb)) nfs.push(...splitSpace(f, pb)); else nfs.push(f); }
+                    fs = pruneSpaces(nfs);
+                } else { overflowCount++; }
+            }
+
+            updateStats(usedCbm);
+            if (packedCount > 0) document.getElementById('download-tally-btn').classList.remove('hidden');
+
+            if (overflowCount > 0) showMessage(`Packed ${packedCount} items. ${overflowCount} overflowed!`, 'text-red-600 font-bold');
+            else showMessage(`Success! All ${packedCount} items packed.`, 'text-green-600 font-bold');
+        }
+
+        function create3DBox(bd, x, y, z) {
+            const geo = new THREE.BoxGeometry(bd.w, bd.h, bd.d);
+            const mat = new THREE.MeshLambertMaterial({ color: bd.color, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
+            const mesh = new THREE.Mesh(geo, mat);
+
+            const edges = new THREE.EdgesGeometry(geo);
+            mesh.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1, transparent: true, opacity: 0.2 })));
+
+            mesh.position.set(-containerSize.w / 2 + x + bd.w / 2, -containerSize.h / 2 + y + bd.h / 2, -containerSize.d / 2 + z + bd.d / 2);
+            boxGroup.add(mesh);
+        }
+
+        function showMessage(text, classes) {
+            const msgEl = document.getElementById('message-box');
+            msgEl.className = `mb-2 text-sm text-center min-h-[1.5rem] font-medium ${classes}`;
+            msgEl.innerText = text;
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update(); 
+            renderer.render(scene, camera);
+        }
+
+        window.onload = init;
+    </script>
 </body>
 </html>
