@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Container Stuffing Planner</title>
+    <title>3D Container Stuffing Planner - Step by Step</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -16,19 +16,19 @@
         .hidden { display: none !important; }
     </style>
 </head>
-<body class="flex flex-row h-screen w-screen overflow-hidden bg-gray-900 text-gray-800">
+<body class="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-gray-900 text-gray-800">
 
     <!-- Sidebar Controls -->
-    <aside class="w-80 lg:w-96 bg-white shadow-xl h-full overflow-y-auto shrink-0 z-10 flex flex-col">
-        <div class="p-5 flex flex-col gap-5">
+    <aside class="w-full md:w-80 lg:w-96 bg-white shadow-xl h-full overflow-y-auto shrink-0 z-10 flex flex-col">
+        <div class="p-5 flex flex-col gap-4">
             
             <header>
                 <h1 class="text-2xl font-bold text-gray-900 mb-1">Container Planner</h1>
-                <p class="text-sm text-gray-500">Plan 3D box stuffing and logistics.</p>
+                <p class="text-sm text-gray-500">3D stuffing & step-by-step loading</p>
             </header>
 
             <!-- Container Settings -->
-            <section class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <section class="bg-gray-50 p-3 rounded-lg border border-gray-200">
                 <h2 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Container Selection</h2>
                 <select id="container-type" onchange="updateContainerSize()" class="w-full px-2 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                     <option value="20">20' feet (28 cbm)</option>
@@ -38,7 +38,7 @@
             </section>
 
             <!-- Data Upload -->
-            <section class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <section class="bg-gray-50 p-3 rounded-lg border border-gray-200">
                 <h2 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Upload Data</h2>
                 <input type="file" id="csv-file" accept=".csv" class="w-full text-sm text-gray-500 file:mr-2 file:py-1 file:px-3 file:rounded file:border-0 file:bg-blue-50 file:text-blue-700 cursor-pointer">
                 <div class="mt-2 text-right">
@@ -48,36 +48,56 @@
 
             <!-- Stats Panel -->
             <section>
-                <h2 class="text-xs font-bold text-gray-700 uppercase tracking-wider mb-2">Packing Stats</h2>
-                <div class="grid grid-cols-2 gap-3 mb-3">
-                    <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                <div class="grid grid-cols-2 gap-2 mb-1">
+                    <div class="bg-blue-50 p-2 rounded-lg border border-blue-100">
                         <div class="text-[10px] text-blue-500 font-bold tracking-wide">TOTAL CBM</div>
                         <div id="stat-total-cbm" class="text-lg font-black text-blue-700">0.00</div>
                     </div>
-                    <div class="bg-green-50 p-3 rounded-lg border border-green-100">
+                    <div class="bg-green-50 p-2 rounded-lg border border-green-100">
                         <div class="text-[10px] text-green-500 font-bold tracking-wide">USED CBM</div>
                         <div id="stat-used-cbm" class="text-lg font-black text-green-700">0.00</div>
                     </div>
-                    <div class="bg-purple-50 p-3 rounded-lg border border-purple-100 col-span-2">
-                        <div class="text-[10px] text-purple-500 font-bold tracking-wide mb-1">EFFICIENCY</div>
-                        <div class="flex items-center gap-2">
-                            <div class="flex-1 bg-purple-200 rounded-full h-2">
-                                <div id="stat-efficiency-bar" class="bg-purple-600 h-2 rounded-full" style="width: 0%"></div>
-                            </div>
-                            <span id="stat-efficiency-text" class="text-sm font-bold text-purple-700">0%</span>
-                        </div>
+                </div>
+                <div class="bg-purple-50 p-2 rounded-lg border border-purple-100">
+                    <div class="flex justify-between items-center mb-1">
+                        <div class="text-[10px] text-purple-500 font-bold tracking-wide">EFFICIENCY</div>
+                        <span id="stat-efficiency-text" class="text-xs font-bold text-purple-700">0%</span>
+                    </div>
+                    <div class="w-full bg-purple-200 rounded-full h-1.5">
+                        <div id="stat-efficiency-bar" class="bg-purple-600 h-1.5 rounded-full" style="width: 0%"></div>
                     </div>
                 </div>
             </section>
 
             <!-- Actions (Buttons) -->
-            <section class="mt-2 pb-4">
+            <section>
                 <div id="message-box" class="mb-2 text-sm text-center min-h-[1.5rem] font-medium"></div>
                 <button onclick="startPlanning()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-base font-bold py-3 rounded-lg shadow-md transition-colors">
                     Start Planning
                 </button>
-                <button id="download-tally-btn" onclick="downloadTallySheet()" class="w-full bg-green-600 hover:bg-green-700 text-white text-base font-bold py-3 rounded-lg shadow-md mt-3 hidden transition-colors">
-                    Download Tally Sheet
+                <button id="download-tally-btn" onclick="downloadTallySheet()" class="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-bold py-2 rounded-lg shadow-md mt-2 hidden transition-colors">
+                    Download Excel Tally Sheet
+                </button>
+            </section>
+
+            <!-- NEW: Step-by-Step Playback Controls -->
+            <section id="playback-controls" class="mt-2 bg-blue-50 p-4 rounded-lg border border-blue-200 hidden pb-6">
+                <h2 class="text-xs font-bold text-blue-800 uppercase tracking-wider mb-2 text-center">3D Loading Sequence</h2>
+                
+                <div id="step-indicator" class="text-center font-black text-xl text-blue-700 mb-1">Step 0 / 0</div>
+                <div id="step-details" class="text-center text-sm font-bold text-gray-700 mb-4 min-h-[2.5rem] flex items-center justify-center bg-white rounded border border-blue-100 p-2">--</div>
+                
+                <div class="flex justify-between gap-3">
+                    <button onclick="prevStep()" class="flex-1 bg-white border-2 border-blue-600 text-blue-700 font-bold py-3 rounded-lg active:bg-blue-100 transition-colors text-sm shadow-sm">
+                        &larr; Prev
+                    </button>
+                    <button onclick="nextStep()" class="flex-1 bg-blue-600 text-white font-bold py-3 rounded-lg active:bg-blue-700 transition-colors text-sm shadow-sm">
+                        Next &rarr;
+                    </button>
+                </div>
+                
+                <button onclick="showAllSteps()" class="w-full mt-3 bg-gray-200 text-gray-700 text-xs font-bold py-2 rounded active:bg-gray-300 transition-colors">
+                    Show Full Container
                 </button>
             </section>
             
@@ -96,6 +116,11 @@
         let boxes = [];
         let globalPackedBoxes = [];
         let boxIdCounter = 0;
+        
+        // Step-by-Step Variables
+        let currentStep = 0;
+        let totalSteps = 0;
+        let stepDataMap = {};
         
         let scene, camera, renderer, controls, containerMesh, boxGroup;
 
@@ -118,7 +143,7 @@
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             container.appendChild(renderer.domElement);
 
-            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls = new OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
             controls.target.set(0, 0, 0);
@@ -163,10 +188,11 @@
             
             showMessage('Container selected. Ready to pack.', 'text-gray-500');
             document.getElementById('download-tally-btn').classList.add('hidden');
+            document.getElementById('playback-controls').classList.add('hidden');
         }
 
         function downloadTemplate() {
-            const template = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\nStandard Box,50,40,30,20,#3b82f6\nLarge Box,100,50,50,10,#10b981\nPallet Base,120,100,15,5,#f59e0b";
+            const template = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\\nStandard Box,50,40,30,20,#3b82f6\\nLarge Box,100,50,50,10,#10b981\\nPallet Base,120,100,15,5,#f59e0b";
             const blob = new Blob([template], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
@@ -223,56 +249,8 @@
             });
         }
 
-        function downloadTallySheet() {
-            if (globalPackedBoxes.length === 0) return alert("No packed data available!");
-
-            let reportData = []; let currentGroup = null; let step = 1;
-            for (let i = 0; i < globalPackedBoxes.length; i++) {
-                let box = globalPackedBoxes[i];
-                let boxKey = `${box.orig_l} x ${box.orig_w} x ${box.orig_h}`;
-                
-                if (currentGroup && currentGroup.size === boxKey && currentGroup.color === box.color) {
-                    currentGroup.qty += 1;
-                } else {
-                    if (currentGroup) reportData.push(currentGroup);
-                    currentGroup = { step: step++, size: boxKey, qty: 1, color: box.color };
-                }
-            }
-            if (currentGroup) reportData.push(currentGroup);
-
-            let csvStr = "Step,Box Size (L x W x H cm),Quantity to Load,Color Code\n";
-            reportData.forEach(row => { csvStr += `Step ${row.step},"${row.size}",${row.qty},${row.color}\n`; });
-
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(new Blob([csvStr], { type: 'text/csv;charset=utf-8;' }));
-            link.download = "Loading_Tally_Sheet.csv";
-            link.click();
-        }
-
-        function updateStats(usedCbm) {
-            document.getElementById('stat-used-cbm').innerText = usedCbm.toFixed(2);
-            const efficiency = Math.min(100, Math.max(0, (usedCbm / containerSize.maxCbm) * 100));
-            document.getElementById('stat-efficiency-text').innerText = efficiency.toFixed(1) + '%';
-            document.getElementById('stat-efficiency-bar').style.width = efficiency + '%';
-        }
-
-        function clear3DBoxes() {
-            while(boxGroup.children.length > 0){ 
-                const child = boxGroup.children[0];
-                boxGroup.remove(child); 
-                if(child.geometry) child.geometry.dispose();
-                if(child.material) {
-                    if(Array.isArray(child.material)) child.material.forEach(m => m.dispose());
-                    else child.material.dispose();
-                }
-            }
-            globalPackedBoxes = [];
-        }
-
-        function intersects(fs, B) {
-            return !( B.x >= fs.x + fs.w - 0.001 || B.x + B.w <= fs.x + 0.001 || B.y >= fs.y + fs.h - 0.001 || B.y + B.h <= fs.y + 0.001 || B.z >= fs.z + fs.d - 0.001 || B.z + B.d <= fs.z + 0.001 );
-        }
-
+        // Space and Math Helpers
+        function intersects(fs, B) { return !( B.x >= fs.x + fs.w - 0.001 || B.x + B.w <= fs.x + 0.001 || B.y >= fs.y + fs.h - 0.001 || B.y + B.h <= fs.y + 0.001 || B.z >= fs.z + fs.d - 0.001 || B.z + B.d <= fs.z + 0.001 ); }
         function splitSpace(fs, B) {
             let s = [];
             if (B.y + B.h < fs.y + fs.h) s.push({ x: fs.x, y: B.y + B.h, z: fs.z, w: fs.w, h: fs.y + fs.h - (B.y + B.h), d: fs.d });
@@ -283,7 +261,6 @@
             if (B.z > fs.z) s.push({ x: fs.x, y: fs.y, z: fs.z, w: fs.w, h: fs.h, d: B.z - fs.z });
             return s;
         }
-
         function pruneSpaces(spaces) {
             let pruned = [];
             for (let i = 0; i < spaces.length; i++) {
@@ -339,7 +316,6 @@
 
                 if (bestSpaceIdx !== -1) {
                     let pb = { ...box, x: fs[bestSpaceIdx].x, y: fs[bestSpaceIdx].y, z: fs[bestSpaceIdx].z, w: bestRot.w, h: bestRot.h, d: bestRot.d };
-                    create3DBox(pb, pb.x, pb.y, pb.z);
                     globalPackedBoxes.push(pb); 
                     packedCount++; usedCbm += (pb.w * pb.h * pb.d);
 
@@ -349,14 +325,126 @@
                 } else { overflowCount++; }
             }
 
+            // Generate Step Grouping exactly as in Tally Sheet
+            stepDataMap = {};
+            let step = 1;
+            let currentGroup = null;
+
+            for (let i = 0; i < globalPackedBoxes.length; i++) {
+                let box = globalPackedBoxes[i];
+                let boxKey = `${box.orig_l} x ${box.orig_w} x ${box.orig_h}`;
+                
+                if (currentGroup && currentGroup.size === boxKey && currentGroup.color === box.color) {
+                    currentGroup.qty += 1;
+                    box.step = step;
+                } else {
+                    if (currentGroup) {
+                        stepDataMap[step] = currentGroup;
+                        step++;
+                    }
+                    currentGroup = { size: boxKey, color: box.color, qty: 1 };
+                    box.step = step;
+                }
+                create3DBox(box, box.x, box.y, box.z, box.step);
+            }
+            if (currentGroup) {
+                stepDataMap[step] = currentGroup;
+            }
+            totalSteps = step;
+            currentStep = totalSteps;
+
             updateStats(usedCbm);
-            if (packedCount > 0) document.getElementById('download-tally-btn').classList.remove('hidden');
+            
+            if (packedCount > 0) {
+                document.getElementById('download-tally-btn').classList.remove('hidden');
+                document.getElementById('playback-controls').classList.remove('hidden');
+                updateStepVisualization(); // Show initial state
+            }
 
             if (overflowCount > 0) showMessage(`Packed ${packedCount} items. ${overflowCount} overflowed!`, 'text-red-600 font-bold');
             else showMessage(`Success! All ${packedCount} items packed.`, 'text-green-600 font-bold');
         }
 
-        function create3DBox(bd, x, y, z) {
+        // Step-by-Step Navigation Functions
+        function prevStep() {
+            if (currentStep > 1) {
+                currentStep--;
+                updateStepVisualization();
+            }
+        }
+
+        function nextStep() {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                updateStepVisualization();
+            }
+        }
+
+        function showAllSteps() {
+            currentStep = totalSteps;
+            updateStepVisualization();
+        }
+
+        function updateStepVisualization() {
+            // Update 3D visibility based on currentStep
+            boxGroup.children.forEach(mesh => {
+                if (mesh.userData.step <= currentStep) {
+                    mesh.visible = true;
+                } else {
+                    mesh.visible = false;
+                }
+            });
+
+            // Update UI Texts
+            document.getElementById('step-indicator').innerText = `Step ${currentStep} / ${totalSteps}`;
+            
+            if (stepDataMap[currentStep]) {
+                let info = stepDataMap[currentStep];
+                document.getElementById('step-details').innerHTML = `Load <span class="text-blue-600 mx-1 text-lg">${info.qty}</span> cartons of <br/> [ ${info.size} cm ]`;
+            } else {
+                document.getElementById('step-details').innerText = "All items loaded.";
+            }
+        }
+
+        function downloadTallySheet() {
+            if (Object.keys(stepDataMap).length === 0) return alert("No packed data available!");
+
+            let csvStr = "Step,Box Size (L x W x H cm),Quantity to Load,Color Code\\n";
+            for (let s = 1; s <= totalSteps; s++) {
+                let r = stepDataMap[s];
+                csvStr += `Step ${s},"${r.size}",${r.qty},${r.color}\\n`;
+            }
+
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(new Blob([csvStr], { type: 'text/csv;charset=utf-8;' }));
+            link.download = "Loading_Tally_Sheet.csv";
+            link.click();
+        }
+
+        function updateStats(usedCbm) {
+            document.getElementById('stat-used-cbm').innerText = usedCbm.toFixed(2);
+            const efficiency = Math.min(100, Math.max(0, (usedCbm / containerSize.maxCbm) * 100));
+            document.getElementById('stat-efficiency-text').innerText = efficiency.toFixed(1) + '%';
+            document.getElementById('stat-efficiency-bar').style.width = efficiency + '%';
+        }
+
+        function clear3DBoxes() {
+            while(boxGroup.children.length > 0){ 
+                const child = boxGroup.children[0];
+                boxGroup.remove(child); 
+                if(child.geometry) child.geometry.dispose();
+                if(child.material) {
+                    if(Array.isArray(child.material)) child.material.forEach(m => m.dispose());
+                    else child.material.dispose();
+                }
+            }
+            globalPackedBoxes = [];
+            stepDataMap = {};
+            currentStep = 0;
+            totalSteps = 0;
+        }
+
+        function create3DBox(bd, x, y, z, stepNum) {
             const geo = new THREE.BoxGeometry(bd.w, bd.h, bd.d);
             const mat = new THREE.MeshLambertMaterial({ color: bd.color, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1 });
             const mesh = new THREE.Mesh(geo, mat);
@@ -365,6 +453,10 @@
             mesh.add(new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 1, transparent: true, opacity: 0.2 })));
 
             mesh.position.set(-containerSize.w / 2 + x + bd.w / 2, -containerSize.h / 2 + y + bd.h / 2, -containerSize.d / 2 + z + bd.d / 2);
+            
+            // Save the step number in the mesh so we can hide/show it later
+            mesh.userData.step = stepNum; 
+            
             boxGroup.add(mesh);
         }
 
