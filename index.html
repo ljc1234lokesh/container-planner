@@ -58,9 +58,9 @@
                     <span>1. Container Type</span>
                 </label>
                 <select id="container-select" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
-                    <option value="20ft">20' Standard (5.9m x 2.35m x 2.39m - 28 CBM)</option>
-                    <option value="40ft" selected>40' Standard (12.0m x 2.35m x 2.39m - 58 CBM)</option>
-                    <option value="40hc">40' High Cube (12.0m x 2.35m x 2.69m - 68 CBM)</option>
+                    <option value="20ft">20' Standard (5.90m x 2.35m x 2.39m - 33.1 CBM)</option>
+                    <option value="40ft">40' Standard (12.03m x 2.35m x 2.39m - 67.6 CBM)</option>
+                    <option value="40hc" selected>40' High Cube (12.03m x 2.35m x 2.69m - 76.0 CBM)</option>
                 </select>
             </div>
 
@@ -70,7 +70,7 @@
                 <div class="grid grid-cols-2 gap-2">
                     <button onclick="loadPresetData()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center justify-center space-x-1.5 transition">
                         <i class="fa-solid fa-boxes-stacked text-indigo-400"></i>
-                        <span>Load Preset</span>
+                        <span>Load 1007 Preset</span>
                     </button>
                     <button onclick="downloadTemplate()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center justify-center space-x-1.5 transition">
                         <i class="fa-solid fa-file-arrow-down text-emerald-400"></i>
@@ -82,7 +82,7 @@
                     <div class="flex flex-col items-center pointer-events-none space-y-1">
                         <i class="fa-solid fa-cloud-arrow-up text-indigo-400 text-lg"></i>
                         <span class="text-xs text-slate-300 font-medium">Upload custom CSV file</span>
-                        <span class="text-[10px] text-slate-500">Name, L, W, H, Qty, Color</span>
+                        <span class="text-[10px] text-slate-500">Item Name, Length (cm), Width (cm), Height (cm), Quantity</span>
                     </div>
                 </div>
             </div>
@@ -91,7 +91,10 @@
             <div class="space-y-2">
                 <div class="flex items-center justify-between">
                     <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">3. Cargo Items List</label>
-                    <span id="total-items-badge" class="text-xs bg-slate-800 text-indigo-300 px-2 py-0.5 rounded-full border border-slate-700">0 items</span>
+                    <div class="flex items-center space-x-1.5">
+                        <span id="total-cbm-badge" class="text-[11px] bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-800/60 font-mono">0.00 CBM</span>
+                        <span id="total-items-badge" class="text-[11px] bg-slate-800 text-indigo-300 px-2 py-0.5 rounded-full border border-slate-700 font-mono">0 units</span>
+                    </div>
                 </div>
                 <div class="max-h-40 overflow-y-auto border border-slate-800 rounded-lg bg-slate-950/40">
                     <table class="w-full text-left text-xs text-slate-300">
@@ -99,7 +102,7 @@
                             <tr>
                                 <th class="p-2">Item</th>
                                 <th class="p-2">Dims (cm)</th>
-                                <th class="p-2">Qty</th>
+                                <th class="p-2 text-right">Qty</th>
                             </tr>
                         </thead>
                         <tbody id="cargo-table-body" class="divide-y divide-slate-800/60">
@@ -175,71 +178,36 @@
             </div>
 
             <!-- 3D Legend / Quick Toggle -->
-            <div class="absolute top-4 right-4 z-10 bg-slate-900/80 backdrop-blur border border-slate-700/60 rounded-lg p-2 text-xs text-slate-300 shadow-lg flex items-center space-x-2">
-                <span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></span>
-                <span id="canvas-status-label" class="font-medium">Container Empty</span>
+            <div class="absolute top-4 right-4 z-10 bg-slate-900/80 backdrop-blur border border-slate-700/60 rounded-lg px-3 py-2 text-xs text-slate-300 shadow-lg flex items-center space-x-2">
+                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+                <span id="canvas-status-label" class="font-medium">Ready</span>
+            </div>
+
+            <!-- Hover Box Info Tooltip -->
+            <div id="box-tooltip" class="hidden absolute z-30 pointer-events-none bg-slate-900/95 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 shadow-xl">
+                <div id="tooltip-title" class="font-bold text-indigo-400"></div>
+                <div id="tooltip-dims" class="text-slate-300 font-mono text-[11px]"></div>
+                <div id="tooltip-pos" class="text-slate-400 text-[10px]"></div>
             </div>
         </div>
 
         <!-- Step-by-Step Playback Controls Bar -->
-        <div class="bg-slate-900 border-t border-slate-800 p-4 shadow-2xl z-20 flex flex-col md:flex-row items-center justify-between gap-4">
-            
-            <!-- Current Step Info -->
-            <div class="flex items-center space-x-3 w-full md:w-auto">
-                <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-400 font-bold text-sm shrink-0">
-                    <i class="fa-solid fa-list-ol"></i>
-                </div>
-                <div>
-                    <div id="step-instruction-title" class="text-xs font-semibold text-slate-400 uppercase">Loading Step 0 of 0</div>
-                    <div id="step-instruction-desc" class="text-sm font-medium text-white truncate max-w-md">Load container by running the AI packing algorithm.</div>
-                </div>
-            </div>
-
-            <!-- Playback Buttons -->
-            <div class="flex items-center space-x-2 w-full md:w-auto justify-center">
-                <button onclick="stepFirst()" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs font-medium transition" title="First Step">
-                    <i class="fa-solid fa-backward-step"></i>
-                </button>
-                <button onclick="stepPrev()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
-                    <i class="fa-solid fa-chevron-left"></i>
-                    <span>Prev</span>
-                </button>
-                
-                <button id="play-pause-btn" onclick="togglePlayPause()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-md transition">
-                    <i id="play-icon" class="fa-solid fa-play"></i>
-                    <span id="play-text">Play Sequence</span>
-                </button>
-
-                <button onclick="stepNext()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
-                    <span>Next</span>
-                    <i class="fa-solid fa-chevron-right"></i>
-                </button>
-                <button onclick="showFullContainer()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-400 rounded-lg text-xs font-semibold transition" title="Show All Packed Boxes">
-                    <i class="fa-solid fa-eye mr-1"></i> Full View
-                </button>
-            </div>
-
-        </div>
-    </main>
-
-    <!-- APPLICATION LOGIC SCRIPT -->
-    <script>
-        // --- Modal Helper (Replaces alert()) ---
-        function showModal(title, message) {
-            document.getElementById('modal-title').innerText = title;
-            document.getElementById('modal-message').innerText = message;
-            document.getElementById('modal').classList.remove('hidden');
-        }
-        function closeModal() {
-            document.getElementById('modal').classList.add('hidden');
-        }
-
-        // --- Container Dimensions Configuration (meters) ---
+        // --- Container Dimensions Configuration (Internal dimensions in meters) ---
         const CONTAINERS = {
-            '20ft': { name: "20' Standard", l: 5.90, w: 2.35, h: 2.39, cbm: 28 },
-            '40ft': { name: "40' Standard", l: 12.00, w: 2.35, h: 2.39, cbm: 58 },
-            '40hc': { name: "40' High Cube", l: 12.00, w: 2.35, h: 2.69, cbm: 68 }
+            '20ft': { name: "20' Standard", l: 5.90, w: 2.35, h: 2.39, cbm: 33.14 },
+            '40ft': { name: "40' Standard", l: 12.03, w: 2.35, h: 2.39, cbm: 67.57 },
+            '40hc': { name: "40' High Cube", l: 12.03, w: 2.35, h: 2.69, cbm: 76.05 }
         };
+
+        // --- Distinct Color Palette for Auto-Coloring SKUs ---
+        const PALETTE = [
+            "#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899",
+            "#8b5cf6", "#06b6d4", "#84cc16", "#f97316", "#ef4444",
+            "#6366f1", "#14b8a6", "#eab308", "#d946ef", "#3b82f6",
+            "#22c55e", "#f43f5e", "#a855f7", "#0284c7", "#65a30d",
+            "#ea580c", "#dc2626", "#7c3aed", "#0d9488", "#ca8a04",
+            "#db2777", "#2563eb", "#16a34a"
+        ];
 
         // --- Global State ---
         let rawItemsData = []; // [{name, l, w, h, qty, color}]
@@ -249,30 +217,54 @@
         let playInterval = null;
 
         // --- Three.js Globals ---
-        let scene, camera, renderer, controls;
+        let scene, camera, renderer, controls, raycaster, mouse;
         let containerMeshGroup = new THREE.Group();
         let boxesMeshGroup = new THREE.Group();
         let allBoxMeshes = [];
 
-        // --- Preset Data ---
+        // --- Exact 28-SKU User Dataset (1,007 Cartons, ~67.48 CBM) ---
         const PRESET_ITEMS = [
-            { name: "Standard Carton A", l: 60, w: 40, h: 40, qty: 150, color: "#4f46e5" },
-            { name: "Medium Box B", l: 50, w: 30, h: 30, qty: 200, color: "#0ea5e9" },
-            { name: "Small Box C", l: 40, w: 20, h: 20, qty: 300, color: "#10b981" },
-            { name: "Heavy Crate D", l: 100, w: 80, h: 60, qty: 25, color: "#f59e0b" },
-            { name: "Long Pipe Pack E", l: 200, w: 30, h: 30, qty: 40, color: "#ec4899" }
+            { name: "LC-79669", l: 39, w: 29, h: 44, qty: 15, color: PALETTE[0] },
+            { name: "LC-79673", l: 42, w: 21, h: 55, qty: 20, color: PALETTE[1] },
+            { name: "LC-79679", l: 40, w: 35, h: 50, qty: 100, color: PALETTE[2] },
+            { name: "LC-79680", l: 64, w: 32, h: 47, qty: 160, color: PALETTE[3] },
+            { name: "LC-79682/L", l: 33, w: 31, h: 49, qty: 60, color: PALETTE[4] },
+            { name: "LC-79682/S", l: 48, w: 39, h: 50, qty: 30, color: PALETTE[5] },
+            { name: "LC-79688", l: 50, w: 39, h: 57, qty: 30, color: PALETTE[6] },
+            { name: "LC-79689", l: 34, w: 28, h: 56, qty: 40, color: PALETTE[7] },
+            { name: "LC-79690", l: 40, w: 36, h: 60, qty: 40, color: PALETTE[8] },
+            { name: "LC-79691", l: 36, w: 36, h: 44, qty: 20, color: PALETTE[9] },
+            { name: "LC-79692", l: 36, w: 36, h: 35, qty: 20, color: PALETTE[10] },
+            { name: "LC-79693", l: 40, w: 40, h: 46, qty: 30, color: PALETTE[11] },
+            { name: "LC-79694", l: 36, w: 31, h: 45, qty: 30, color: PALETTE[12] },
+            { name: "LC-79653", l: 32, w: 30, h: 40, qty: 20, color: PALETTE[13] },
+            { name: "LC-79654", l: 48, w: 29, h: 30, qty: 30, color: PALETTE[14] },
+            { name: "LC-79655", l: 36, w: 30, h: 37, qty: 40, color: PALETTE[15] },
+            { name: "LC-60238", l: 30, w: 20, h: 60, qty: 20, color: PALETTE[16] },
+            { name: "LC-90134/L", l: 45, w: 29, h: 56, qty: 40, color: PALETTE[17] },
+            { name: "LC-90134/S", l: 38, w: 24, h: 49, qty: 30, color: PALETTE[18] },
+            { name: "LC-47932/GLD", l: 33, w: 30, h: 51, qty: 30, color: PALETTE[19] },
+            { name: "LC-47870/G", l: 31, w: 29, h: 38, qty: 10, color: PALETTE[20] },
+            { name: "LC-47870/R", l: 31, w: 29, h: 38, qty: 10, color: PALETTE[21] },
+            { name: "LC-47927/L", l: 37, w: 23, h: 47, qty: 16, color: PALETTE[22] },
+            { name: "LC-47931", l: 45, w: 45, h: 39, qty: 96, color: PALETTE[23] },
+            { name: "LC-79818/XL", l: 45, w: 45, h: 38, qty: 20, color: PALETTE[24] },
+            { name: "LC-79818/L", l: 50, w: 50, h: 30, qty: 20, color: PALETTE[25] },
+            { name: "LC-79818/M", l: 40, w: 40, h: 30, qty: 15, color: PALETTE[26] },
+            { name: "LC-79818/S", l: 35, w: 35, h: 28, qty: 15, color: PALETTE[27] }
         ];
 
         // --- Initialize App on Load ---
         window.addEventListener('DOMContentLoaded', () => {
             initThreeJS();
             loadPresetData();
+            runPackingAlgorithm();
             
             window.addEventListener('resize', onWindowResize);
 
             document.getElementById('container-select').addEventListener('change', () => {
                 updateContainerWireframe();
-                if (packedResult) {
+                if (rawItemsData.length > 0) {
                     runPackingAlgorithm();
                 }
             });
@@ -285,8 +277,8 @@
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x020617);
 
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
-            camera.position.set(15, 12, 18);
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 150);
+            camera.position.set(16, 10, 14);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(container.clientWidth, container.clientHeight);
@@ -296,31 +288,62 @@
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
-            controls.target.set(6, 1, 0);
+            controls.dampingFactor = 0.06;
+            controls.target.set(6, 1.3, 1.17);
 
             // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
             scene.add(ambientLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            dirLight.position.set(20, 30, 20);
-            dirLight.castShadow = true;
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
+            dirLight.position.set(20, 35, 25);
             scene.add(dirLight);
 
             const dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.4);
-            dirLight2.position.set(-20, -10, -20);
+            dirLight2.position.set(-20, 15, -20);
             scene.add(dirLight2);
 
-            const gridHelper = new THREE.GridHelper(30, 30, 0x334155, 0x1e293b);
-            gridHelper.position.y = -0.01;
+            const gridHelper = new THREE.GridHelper(32, 32, 0x334155, 0x1e293b);
+            gridHelper.position.set(6, -0.02, 1.2);
             scene.add(gridHelper);
 
             scene.add(containerMeshGroup);
             scene.add(boxesMeshGroup);
 
+            // Raycaster for hover inspection
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+            renderer.domElement.addEventListener('mousemove', onCanvasMouseMove);
+            renderer.domElement.addEventListener('mouseleave', () => {
+                document.getElementById('box-tooltip').classList.add('hidden');
+            });
+
             updateContainerWireframe();
             animateThree();
+        }
+
+        function onCanvasMouseMove(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const visibleMeshes = allBoxMeshes.filter(m => m.visible);
+            const intersects = raycaster.intersectObjects(visibleMeshes, false);
+
+            const tooltip = document.getElementById('box-tooltip');
+            if (intersects.length > 0) {
+                const hit = intersects[0].object;
+                const d = hit.userData;
+                document.getElementById('tooltip-title').innerText = d.boxName;
+                document.getElementById('tooltip-dims').innerText = `Placed Dims: ${d.l} × ${d.w} × ${d.h} cm`;
+                document.getElementById('tooltip-pos').innerText = `Pos (X,Y,Z): ${d.x}, ${d.y}, ${d.z} cm | Step ${d.stepIndex + 1}`;
+                tooltip.style.left = `${event.clientX - rect.left + 14}px`;
+                tooltip.style.top = `${event.clientY - rect.top + 14}px`;
+                tooltip.classList.remove('hidden');
+            } else {
+                tooltip.classList.add('hidden');
+            }
         }
 
         function animateThree() {
@@ -348,19 +371,19 @@
 
             const boxGeo = new THREE.BoxGeometry(L, H, W);
             const edges = new THREE.EdgesGeometry(boxGeo);
-            const lineMat = new THREE.LineBasicMaterial({ color: 0x6366f1, transparent: true, opacity: 0.6 });
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.75 });
             const wireframeBox = new THREE.LineSegments(edges, lineMat);
             wireframeBox.position.set(L / 2, H / 2, W / 2);
             containerMeshGroup.add(wireframeBox);
 
             const floorGeo = new THREE.PlaneGeometry(L, W);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9, transparent: true, opacity: 0.65, side: THREE.DoubleSide });
             const floor = new THREE.Mesh(floorGeo, floorMat);
             floor.rotation.x = -Math.PI / 2;
             floor.position.set(L / 2, 0, W / 2);
             containerMeshGroup.add(floor);
 
-            controls.target.set(L / 2, H / 2, 0);
+            controls.target.set(L / 2, H / 2, W / 2);
         }
 
         // --- Data Management & Template ---
@@ -370,15 +393,15 @@
         }
 
         function downloadTemplate() {
-            const csvContent = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\n" +
-                               "Standard Box A,60,40,40,50,#4f46e5\n" +
-                               "Medium Box B,50,30,30,80,#0ea5e9\n" +
-                               "Small Box C,30,20,20,100,#10b981";
+            let csvContent = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\n";
+            PRESET_ITEMS.forEach(item => {
+                csvContent += `${item.name},${item.l},${item.w},${item.h},${item.qty},${item.color}\n`;
+            });
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = "cargo_template.csv";
+            a.download = "cargo_template_1007_items.csv";
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -394,24 +417,28 @@
                 complete: function(results) {
                     if (results.data && results.data.length > 0) {
                         const parsed = [];
-                        results.data.forEach(row => {
-                            const name = row['Item Name'] || row['name'] || 'Unnamed Item';
-                            const l = parseFloat(row['Length (cm)'] || row['length'] || 50);
-                            const w = parseFloat(row['Width (cm)'] || row['width'] || 40);
-                            const h = parseFloat(row['Height (cm)'] || row['height'] || 30);
-                            const qty = parseInt(row['Quantity'] || row['qty'] || 10);
-                            const color = row['Color'] || row['color'] || '#' + Math.floor(Math.random()*16777215).toString(16);
+                        results.data.forEach((row, idx) => {
+                            // Normalize header keys (trim spaces and case-insensitive lookup)
+                            const norm = {};
+                            Object.keys(row).forEach(k => { norm[k.trim().toLowerCase()] = row[k]; });
 
-                            if (!isNaN(l) && !isNaN(w) && !isNaN(h) && !isNaN(qty)) {
-                                parsed.push({ name, l, w, h, qty, color });
+                            const name = norm['item name'] || norm['name'] || norm['sku'] || `Item-${idx + 1}`;
+                            const l = Math.round(parseFloat(norm['length (cm)'] || norm['length'] || norm['l']));
+                            const w = Math.round(parseFloat(norm['width (cm)'] || norm['width'] || norm['w']));
+                            const h = Math.round(parseFloat(norm['height (cm)'] || norm['height'] || norm['h']));
+                            const qty = parseInt(norm['quantity'] || norm['qty'] || norm['q']);
+                            const color = norm['color'] || PALETTE[idx % PALETTE.length];
+
+                            if (!isNaN(l) && !isNaN(w) && !isNaN(h) && !isNaN(qty) && qty > 0) {
+                                parsed.push({ name: String(name).trim(), l, w, h, qty, color });
                             }
                         });
                         if (parsed.length > 0) {
                             rawItemsData = parsed;
                             renderCargoTable();
-                            showModal("Success", `Successfully loaded ${parsed.length} item types from CSV.`);
+                            runPackingAlgorithm();
                         } else {
-                            showModal("Error", "No valid items found in CSV. Please match the template headers.");
+                            showModal("Error", "No valid items found in CSV. Make sure columns include Item Name, Length (cm), Width (cm), Height (cm), Quantity.");
                         }
                     }
                 },
@@ -425,153 +452,248 @@
             const tbody = document.getElementById('cargo-table-body');
             tbody.innerHTML = '';
             let totalQty = 0;
+            let totalCbm = 0;
 
             if (rawItemsData.length === 0) {
                 tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-slate-500 italic">No items loaded.</td></tr>`;
-                document.getElementById('total-items-badge').innerText = `0 items`;
+                document.getElementById('total-items-badge').innerText = `0 units`;
+                document.getElementById('total-cbm-badge').innerText = `0.00 CBM`;
                 return;
             }
 
             rawItemsData.forEach(item => {
                 totalQty += item.qty;
+                totalCbm += (item.l * item.w * item.h * item.qty) / 1000000;
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="p-2 font-medium text-white flex items-center space-x-2">
-                        <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${item.color}"></span>
-                        <span class="truncate max-w-[120px]" title="${item.name}">${item.name}</span>
+                        <span class="w-2.5 h-2.5 rounded-full shrink-0 inline-block" style="background-color: ${item.color}"></span>
+                        <span class="truncate max-w-[115px]" title="${item.name}">${item.name}</span>
                     </td>
-                    <td class="p-2 text-slate-400 font-mono">${item.l}x${item.w}x${item.h}</td>
-                    <td class="p-2 text-indigo-400 font-bold">${item.qty}</td>
+                    <td class="p-2 text-slate-400 font-mono">${item.l}×${item.w}×${item.h}</td>
+                    <td class="p-2 text-indigo-400 font-bold text-right">${item.qty}</td>
                 `;
                 tbody.appendChild(tr);
             });
 
-            document.getElementById('total-items-badge').innerText = `${totalQty} total units`;
+            document.getElementById('total-items-badge').innerText = `${totalQty} units`;
+            document.getElementById('total-cbm-badge').innerText = `${totalCbm.toFixed(2)} CBM`;
         }
 
 
-        // --- Advanced Multi-Pass Randomized 3D Packing Heuristic ---
-        function runSinglePackingPass(itemsPool, cL, cW, cH, rotationPriority = 0) {
-            let packedBoxes = [];
-            let unpackedBoxes = [];
+        // ============================================================================
+        // HIGH-DENSITY 3D MAXIMAL FREE-RECTANGLES & WALL-BUILDING PACKING ENGINE
+        // ============================================================================
 
-            let currentX = 0;
-            let currentY = 0;
-            let currentZ = 0;
-            let rowMaxW = 0;
-            let layerMaxH = 0;
+        function getUniqueOrientations(l, w, h) {
+            const raw = [
+                { l: l, w: w, h: h },
+                { l: l, w: h, h: w },
+                { l: w, w: l, h: h },
+                { l: w, w: h, h: l },
+                { l: h, w: l, h: w },
+                { l: h, w: w, h: l }
+            ];
+            const unique = [];
+            const seen = new Set();
+            for (const o of raw) {
+                const key = `${o.l}_${o.w}_${o.h}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    unique.push(o);
+                }
+            }
+            return unique;
+        }
 
-            itemsPool.forEach(box => {
-                // Generate 6 possible 3D orientations, reordered based on priority pass
-                let orientations = [
-                    { l: box.l, w: box.w, h: box.h },
-                    { l: box.l, w: box.h, h: box.w },
-                    { l: box.w, w: box.l, h: box.h },
-                    { l: box.w, w: box.h, h: box.l },
-                    { l: box.h, w: box.l, h: box.w },
-                    { l: box.h, w: box.w, h: box.l }
-                ];
+        function boxesOverlap(a, b) {
+            return (
+                a.x < b.x + b.l && a.x + a.l > b.x &&
+                a.y < b.y + b.h && a.y + a.h > b.y &&
+                a.z < b.z + b.w && a.z + a.w > b.z
+            );
+        }
 
-                if (rotationPriority === 1) {
-                    // Prioritize lowest height orientation first to conserve vertical layers
-                    orientations.sort((a, b) => a.h - b.h);
-                } else if (rotationPriority === 2) {
-                    // Prioritize largest base area orientation first
-                    orientations.sort((a, b) => (b.l * b.w) - (a.l * a.w));
+        function isContainedIn(a, b) {
+            return (
+                a.x >= b.x && a.y >= b.y && a.z >= b.z &&
+                a.x + a.l <= b.x + b.l &&
+                a.y + a.h <= b.y + b.h &&
+                a.z + a.w <= b.z + b.w
+            );
+        }
+
+        /**
+         * Splits any intersecting free space into up to 6 maximal non-overlapping sub-spaces
+         * and removes redundant subspaces that are strictly contained within others.
+         */
+        function updateFreeSpaces(freeSpaces, placedBox) {
+            const nextSpaces = [];
+            for (let i = 0; i < freeSpaces.length; i++) {
+                const fs = freeSpaces[i];
+                if (!boxesOverlap(fs, placedBox)) {
+                    nextSpaces.push(fs);
+                    continue;
                 }
 
-                let fitted = false;
-                for (let ori of orientations) {
-                    if (currentX + ori.l <= cL && currentZ + ori.w <= cW && currentY + ori.h <= cH) {
-                        packedBoxes.push({
-                            id: box.id,
-                            name: box.name,
-                            color: box.color,
-                            x: currentX,
-                            y: currentY,
-                            z: currentZ,
-                            l: ori.l,
-                            w: ori.w,
-                            h: ori.h,
-                            volume: box.volume
-                        });
+                // 1. Space before placedBox along X (rare if placing at back, but kept for completeness)
+                if (placedBox.x > fs.x) {
+                    nextSpaces.push({
+                        x: fs.x, y: fs.y, z: fs.z,
+                        l: placedBox.x - fs.x, w: fs.w, h: fs.h
+                    });
+                }
+                // 2. Space in front of placedBox along X (+X direction toward container door)
+                if (placedBox.x + placedBox.l < fs.x + fs.l) {
+                    nextSpaces.push({
+                        x: placedBox.x + placedBox.l, y: fs.y, z: fs.z,
+                        l: (fs.x + fs.l) - (placedBox.x + placedBox.l), w: fs.w, h: fs.h
+                    });
+                }
+                // 3. Space below placedBox along Y
+                if (placedBox.y > fs.y) {
+                    nextSpaces.push({
+                        x: fs.x, y: fs.y, z: fs.z,
+                        l: fs.l, w: fs.w, h: placedBox.y - fs.y
+                    });
+                }
+                // 4. Space above placedBox along Y (+Y direction toward ceiling)
+                if (placedBox.y + placedBox.h < fs.y + fs.h) {
+                    nextSpaces.push({
+                        x: fs.x, y: placedBox.y + placedBox.h, z: fs.z,
+                        l: fs.l, w: fs.w, h: (fs.y + fs.h) - (placedBox.y + placedBox.h)
+                    });
+                }
+                // 5. Space to the left along Z
+                if (placedBox.z > fs.z) {
+                    nextSpaces.push({
+                        x: fs.x, y: fs.y, z: fs.z,
+                        l: fs.l, w: placedBox.z - fs.z, h: fs.h
+                    });
+                }
+                // 6. Space to the right along Z (+Z direction across width)
+                if (placedBox.z + placedBox.w < fs.z + fs.w) {
+                    nextSpaces.push({
+                        x: fs.x, y: fs.y, z: placedBox.z + placedBox.w,
+                        l: fs.l, w: (fs.z + fs.w) - (placedBox.z + placedBox.w), h: fs.h
+                    });
+                }
+            }
 
-                        currentX += ori.l;
-                        rowMaxW = Math.max(rowMaxW, ori.w);
-                        layerMaxH = Math.max(layerMaxH, ori.h);
-                        fitted = true;
+            // Filter out tiny unusable slivers (< 15cm) and contained spaces
+            const filtered = nextSpaces.filter(s => s.l >= 18 && s.w >= 18 && s.h >= 18);
+            const maximal = [];
+            for (let i = 0; i < filtered.length; i++) {
+                let dominated = false;
+                for (let j = 0; j < filtered.length; j++) {
+                    if (i !== j && isContainedIn(filtered[i], filtered[j])) {
+                        dominated = true;
                         break;
                     }
                 }
+                if (!dominated) maximal.push(filtered[i]);
+            }
 
-                if (!fitted) {
-                    currentX = 0;
-                    currentZ += rowMaxW;
-                    rowMaxW = 0;
+            // Sort back-to-front (X), bottom-to-top (Y), left-to-right (Z)
+            maximal.sort((a, b) => (a.x - b.x) || (a.y - b.y) || (a.z - b.z));
+            return maximal;
+        }
 
-                    let fittedNextRow = false;
-                    for (let ori of orientations) {
-                        if (currentX + ori.l <= cL && currentZ + ori.w <= cW && currentY + ori.h <= cH) {
-                            packedBoxes.push({
-                                id: box.id,
-                                name: box.name,
-                                color: box.color,
-                                x: currentX,
-                                y: currentY,
-                                z: currentZ,
-                                l: ori.l,
-                                w: ori.w,
-                                h: ori.h,
-                                volume: box.volume
-                            });
+        /**
+         * Single pass of the 3D Maximal Free-Rectangles Block/Box Packer
+         */
+        function runMaximalSpacePass(skuGroups, cL, cW, cH, strategyMode = 0) {
+            let freeSpaces = [{ x: 0, y: 0, z: 0, l: cL, w: cW, h: cH }];
+            let packedBoxes = [];
+            let unpackedBoxes = [];
 
-                            currentX += ori.l;
-                            rowMaxW = Math.max(rowMaxW, ori.w);
-                            layerMaxH = Math.max(layerMaxH, ori.h);
-                            fittedNextRow = true;
-                            break;
-                        }
-                    }
-
-                    if (!fittedNextRow) {
-                        currentX = 0;
-                        currentZ = 0;
-                        currentY += layerMaxH;
-                        rowMaxW = 0;
-                        layerMaxH = 0;
-
-                        let fittedNextLayer = false;
-                        for (let ori of orientations) {
-                            if (currentX + ori.l <= cL && currentZ + ori.w <= cW && currentY + ori.h <= cH) {
-                                packedBoxes.push({
-                                    id: box.id,
-                                    name: box.name,
-                                    color: box.color,
-                                    x: currentX,
-                                    y: currentY,
-                                    z: currentZ,
-                                    l: ori.l,
-                                    w: ori.w,
-                                    h: ori.h,
-                                    volume: box.volume
-                                });
-
-                                currentX += ori.l;
-                                rowMaxW = Math.max(rowMaxW, ori.w);
-                                layerMaxH = Math.max(layerMaxH, ori.h);
-                                fittedNextLayer = true;
-                                break;
-                            }
-                        }
-
-                        if (!fittedNextLayer) {
-                            unpackedBoxes.push(box);
-                        }
-                    }
+            // Flatten boxes according to SKU ordering
+            let pool = [];
+            skuGroups.forEach(group => {
+                for (let i = 0; i < group.qty; i++) {
+                    pool.push({
+                        id: group.startId + i,
+                        name: group.name,
+                        l: group.l,
+                        w: group.w,
+                        h: group.h,
+                        color: group.color,
+                        volume: group.l * group.w * group.h
+                    });
                 }
             });
 
-            const packedVolume = packedBoxes.reduce((sum, b) => sum + b.volume, 0);
+            for (let bIdx = 0; bIdx < pool.length; bIdx++) {
+                const box = pool[bIdx];
+                const orientations = getUniqueOrientations(box.l, box.w, box.h);
+
+                let bestSpaceIdx = -1;
+                let bestOri = null;
+                let bestScore = Infinity;
+
+                // Evaluate candidate free spaces
+                for (let sIdx = 0; sIdx < freeSpaces.length; sIdx++) {
+                    const fs = freeSpaces[sIdx];
+                    if (fs.l * fs.w * fs.h < box.volume) continue;
+
+                    for (let oIdx = 0; oIdx < orientations.length; oIdx++) {
+                        const ori = orientations[oIdx];
+                        if (ori.l <= fs.l && ori.w <= fs.w && ori.h <= fs.h) {
+                            // Primary priority: pack tightly toward the back (lowest X), then floor (lowest Y), then left wall (lowest Z)
+                            let score = fs.x * 100000 + fs.y * 500 + fs.z * 50;
+
+                            if (strategyMode === 0) {
+                                // Best harmonic fit: reward orientations whose width/height evenly divide or tightly fit the free space
+                                const remW = fs.w % ori.w;
+                                const remH = fs.h % ori.h;
+                                score += remW * 12 + remH * 12 + ori.l * 2;
+                            } else if (strategyMode === 1) {
+                                // Compact X wall depth: prefer small X footprint so wall stays thin & flat
+                                score += ori.l * 25 + (fs.w - ori.w) * 5;
+                            } else if (strategyMode === 2) {
+                                // Flattest layer priority
+                                score += ori.h * 20 + (fs.w % ori.w) * 10;
+                            } else {
+                                // Tightest Short-Side Fit (BSSF)
+                                const leftoverW = fs.w - ori.w;
+                                const leftoverH = fs.h - ori.h;
+                                score += Math.min(leftoverW, leftoverH) * 15;
+                            }
+
+                            if (score < bestScore) {
+                                bestScore = score;
+                                bestSpaceIdx = sIdx;
+                                bestOri = ori;
+                            }
+                        }
+                    }
+
+                    // Early exit once we find a valid back-wall space to keep execution super fast
+                    if (bestSpaceIdx !== -1 && sIdx > 25) break;
+                }
+
+                if (bestSpaceIdx !== -1 && bestOri) {
+                    const targetSpace = freeSpaces[bestSpaceIdx];
+                    const placed = {
+                        id: box.id,
+                        name: box.name,
+                        color: box.color,
+                        x: targetSpace.x,
+                        y: targetSpace.y,
+                        z: targetSpace.z,
+                        l: bestOri.l,
+                        w: bestOri.w,
+                        h: bestOri.h,
+                        volume: box.volume
+                    };
+                    packedBoxes.push(placed);
+                    freeSpaces = updateFreeSpaces(freeSpaces, placed);
+                } else {
+                    unpackedBoxes.push(box);
+                }
+            }
+
+            const packedVolume = packedBoxes.reduce((acc, b) => acc + b.volume, 0);
             return { packedBoxes, unpackedBoxes, packedVolume };
         }
 
@@ -584,65 +706,70 @@
             const typeKey = document.getElementById('container-select').value;
             const containerSpec = CONTAINERS[typeKey];
 
-            const cL = containerSpec.l * 100;
-            const cW = containerSpec.w * 100;
-            const cH = containerSpec.h * 100;
+            // Integer centimeters for exact collision-free geometry
+            const cL = Math.round(containerSpec.l * 100);
+            const cW = Math.round(containerSpec.w * 100);
+            const cH = Math.round(containerSpec.h * 100);
 
-            let baseItemsPool = [];
             let idCounter = 1;
-            rawItemsData.forEach(item => {
-                for (let q = 0; q < item.qty; q++) {
-                    baseItemsPool.push({
-                        id: idCounter++,
-                        name: item.name,
-                        l: item.l,
-                        w: item.w,
-                        h: item.h,
-                        color: item.color,
-                        volume: item.l * item.w * item.h
-                    });
-                }
+            const skuGroups = rawItemsData.map(item => {
+                const grp = {
+                    name: item.name,
+                    l: Math.round(item.l),
+                    w: Math.round(item.w),
+                    h: Math.round(item.h),
+                    qty: parseInt(item.qty),
+                    color: item.color,
+                    unitVol: Math.round(item.l) * Math.round(item.w) * Math.round(item.h),
+                    totalVol: Math.round(item.l) * Math.round(item.w) * Math.round(item.h) * parseInt(item.qty),
+                    startId: idCounter
+                };
+                idCounter += grp.qty;
+                return grp;
             });
 
-            // Define multi-pass strategies to maximize packed count and efficiency
-            let candidatePasses = [];
+            const totalUnits = skuGroups.reduce((s, g) => s + g.qty, 0);
 
-            // Pass 1: Volume descending (Standard Best-Fit)
-            let pool1 = [...baseItemsPool].sort((a, b) => b.volume - a.volume);
-            candidatePasses.push(runSinglePackingPass(pool1, cL, cW, cH, 0));
-            candidatePasses.push(runSinglePackingPass(pool1, cL, cW, cH, 1));
-            candidatePasses.push(runSinglePackingPass(pool1, cL, cW, cH, 2));
+            // Multi-Pass Heuristic Search (Stops immediately as soon as 100% of items are packed)
+            const orderings = [
+                // Order 1: Total SKU batch volume descending (packs large uniform walls first)
+                [...skuGroups].sort((a, b) => b.totalVol - a.totalVol),
+                // Order 2: Individual carton volume descending
+                [...skuGroups].sort((a, b) => b.unitVol - a.unitVol),
+                // Order 3: Longest edge descending
+                [...skuGroups].sort((a, b) => Math.max(b.l, b.w, b.h) - Math.max(a.l, a.w, a.h)),
+                // Order 4: Randomized SKU group order for non-linear space combinations
+                [...skuGroups].sort(() => Math.random() - 0.5)
+            ];
 
-            // Pass 2: Longest dimension descending
-            let pool2 = [...baseItemsPool].sort((a, b) => Math.max(b.l, b.w, b.h) - Math.max(a.l, a.w, a.h));
-            candidatePasses.push(runSinglePackingPass(pool2, cL, cW, cH, 0));
-            candidatePasses.push(runSinglePackingPass(pool2, cL, cW, cH, 2));
+            let bestPass = null;
 
-            // Pass 3: Randomized / shuffled heuristic pass to explore non-linear combinations
-            let pool3 = [...baseItemsPool].sort(() => Math.random() - 0.5);
-            candidatePasses.push(runSinglePackingPass(pool3, cL, cW, cH, 0));
-            candidatePasses.push(runSinglePackingPass(pool3, cL, cW, cH, 1));
-
-            // Pass 4: Surface area descending
-            let pool4 = [...baseItemsPool].sort((a, b) => (b.l * b.w + b.w * b.h + b.h * b.l) - (a.l * a.w + a.w * a.h + a.h * a.l));
-            candidatePasses.push(runSinglePackingPass(pool4, cL, cW, cH, 0));
-            candidatePasses.push(runSinglePackingPass(pool4, cL, cW, cH, 1));
-
-            // Select the best result (maximizing packed units count first, then packed volume)
-            let bestPass = candidatePasses[0];
-            for (let i = 1; i < candidatePasses.length; i++) {
-                const cur = candidatePasses[i];
-                if (cur.packedBoxes.length > bestPass.packedBoxes.length || 
-                   (cur.packedBoxes.length === bestPass.packedBoxes.length && cur.packedVolume > bestPass.packedVolume)) {
-                    bestPass = cur;
+            outerLoop:
+            for (let o = 0; o < orderings.length; o++) {
+                for (let mode = 0; mode < 3; mode++) {
+                    const res = runMaximalSpacePass(orderings[o], cL, cW, cH, mode);
+                    if (
+                        !bestPass ||
+                        res.packedBoxes.length > bestPass.packedBoxes.length ||
+                        (res.packedBoxes.length === bestPass.packedBoxes.length && res.packedVolume > bestPass.packedVolume)
+                    ) {
+                        bestPass = res;
+                    }
+                    // If 100% of cartons fit, no need to run additional passes
+                    if (bestPass.packedBoxes.length === totalUnits) {
+                        break outerLoop;
+                    }
                 }
             }
 
             let packedBoxes = bestPass.packedBoxes;
             let unpackedBoxes = bestPass.unpackedBoxes;
 
-            // Group packed boxes into sequential loading steps (back-to-front, bottom-to-top)
+            // Organize packed boxes into logical warehouse loading steps (back-to-front wall slices, bottom-to-top)
             packedBoxes.sort((a, b) => {
+                const wallA = Math.floor(a.x / 60);
+                const wallB = Math.floor(b.x / 60);
+                if (wallA !== wallB) return wallA - wallB;
                 if (a.y !== b.y) return a.y - b.y;
                 if (a.z !== b.z) return a.z - b.z;
                 return a.x - b.x;
@@ -650,17 +777,16 @@
 
             let steps = [];
             let currentStepItems = [];
-            let lastY = packedBoxes.length > 0 ? packedBoxes[0].y : 0;
-            let lastZ = packedBoxes.length > 0 ? packedBoxes[0].z : 0;
+            let currentWall = packedBoxes.length > 0 ? Math.floor(packedBoxes[0].x / 60) : 0;
 
             packedBoxes.forEach((box) => {
-                if (Math.abs(box.y - lastY) > 50 || Math.abs(box.z - lastZ) > 150 || currentStepItems.length >= 15) {
+                const boxWall = Math.floor(box.x / 60);
+                if (boxWall !== currentWall || currentStepItems.length >= 35) {
                     if (currentStepItems.length > 0) {
                         steps.push([...currentStepItems]);
                         currentStepItems = [];
                     }
-                    lastY = box.y;
-                    lastZ = box.z;
+                    currentWall = boxWall;
                 }
                 currentStepItems.push(box);
             });
@@ -673,7 +799,7 @@
                 packedBoxes,
                 unpackedBoxes,
                 steps,
-                totalVolume: cL * cW * cH / 1000000,
+                totalVolume: (cL * cW * cH) / 1000000,
                 packedVolume: bestPass.packedVolume / 1000000
             };
 
@@ -687,19 +813,25 @@
 
             const cVol = packedResult.totalVolume;
             const pVol = packedResult.packedVolume;
-            const efficiency = Math.min(100, Math.round((pVol / cVol) * 100));
+            const efficiency = Math.min(100, ((pVol / cVol) * 100)).toFixed(1);
 
             document.getElementById('stat-container-vol').innerText = `${cVol.toFixed(2)} CBM`;
             document.getElementById('stat-packed-vol').innerText = `${pVol.toFixed(2)} CBM`;
             document.getElementById('stat-efficiency').innerText = `${efficiency}%`;
-            document.getElementById('efficiency-bar').style.width = `${efficiency}%`;
+            document.getElementById('efficiency-bar').style.width = `${Math.min(100, parseFloat(efficiency))}%`;
 
             const packedCount = packedResult.packedBoxes.length;
             const totalUnitsCount = packedCount + packedResult.unpackedBoxes.length;
             document.getElementById('stat-packed-units').innerText = `${packedCount} / ${totalUnitsCount}`;
 
-            document.getElementById('packing-summary-text').innerText = 
-                `AI Multi-pass optimized: Packed ${packedCount} of ${totalUnitsCount} units. ${packedResult.unpackedBoxes.length > 0 ? packedResult.unpackedBoxes.length + ' items did not fit.' : 'All items fit perfectly!'}`;
+            const summaryEl = document.getElementById('packing-summary-text');
+            if (packedResult.unpackedBoxes.length === 0) {
+                summaryEl.className = "text-[11px] text-emerald-400 font-medium";
+                summaryEl.innerText = `✓ 100% Fit! All ${packedCount} cartons (${pVol.toFixed(2)} CBM) packed inside ${packedResult.containerSpec.name}.`;
+            } else {
+                summaryEl.className = "text-[11px] text-amber-400 font-medium";
+                summaryEl.innerText = `Packed ${packedCount} of ${totalUnitsCount} units (${pVol.toFixed(2)} CBM). ${packedResult.unpackedBoxes.length} units exceeded container capacity.`;
+            }
 
             currentStepIndex = 0;
             updateStepView();
@@ -712,6 +844,15 @@
 
             if (!packedResult || packedResult.packedBoxes.length === 0) return;
 
+            // Map each box ID to its loading step index in O(N) time
+            const stepMap = new Map();
+            packedResult.steps.forEach((stepArr, sIdx) => {
+                stepArr.forEach(b => stepMap.set(b.id, sIdx));
+            });
+
+            // Shared edge material for crisp carton outlines
+            const edgeMat = new THREE.LineBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.45 });
+
             packedResult.packedBoxes.forEach((box) => {
                 const bL = box.l / 100;
                 const bW = box.w / 100;
@@ -720,14 +861,11 @@
                 const geom = new THREE.BoxGeometry(bL, bH, bW);
                 const mat = new THREE.MeshStandardMaterial({
                     color: box.color || 0x4f46e5,
-                    roughness: 0.4,
-                    metalness: 0.1
+                    roughness: 0.45,
+                    metalness: 0.08
                 });
 
                 const mesh = new THREE.Mesh(geom, mat);
-                mesh.castShadow = true;
-                mesh.receiveShadow = true;
-
                 mesh.position.set(
                     (box.x / 100) + (bL / 2),
                     (box.y / 100) + (bH / 2),
@@ -735,11 +873,19 @@
                 );
 
                 const edges = new THREE.EdgesGeometry(geom);
-                const lineMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
-                const wireframe = new THREE.LineSegments(edges, lineMat);
+                const wireframe = new THREE.LineSegments(edges, edgeMat);
                 mesh.add(wireframe);
 
-                mesh.userData = { stepIndex: getStepIndexOfBox(box), boxName: box.name };
+                mesh.userData = {
+                    stepIndex: stepMap.get(box.id) || 0,
+                    boxName: box.name,
+                    l: box.l,
+                    w: box.w,
+                    h: box.h,
+                    x: box.x,
+                    y: box.y,
+                    z: box.z
+                };
                 boxesMeshGroup.add(mesh);
                 allBoxMeshes.push(mesh);
             });
