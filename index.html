@@ -44,9 +44,9 @@
                 <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md">
                     <i class="fa-solid fa-cube"></i>
                 </div>
-                <h1 class="font-bold text-base tracking-tight text-white">CargoPack 3D</h1>
+                <h1 class="font-bold text-base tracking-tight text-white">CargoPack 3D Pro</h1>
             </div>
-            <span class="text-xs px-2 py-1 bg-indigo-950 text-indigo-400 border border-indigo-800/50 rounded-md font-mono">v1.2</span>
+            <span class="text-xs px-2 py-1 bg-indigo-950 text-indigo-400 border border-indigo-800/50 rounded-md font-mono">v2.0 AI</span>
         </div>
 
         <!-- Scrollable Controls -->
@@ -114,7 +114,7 @@
             <!-- Run Calculation Button -->
             <button onclick="runPackingAlgorithm()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 transition transform active:scale-95">
                 <i class="fa-solid fa-wand-magic-sparkles"></i>
-                <span>Run 3D Packing Algorithm</span>
+                <span>Run AI Multi-Pass Packing</span>
             </button>
 
             <!-- Packing Stats Panel -->
@@ -133,17 +133,21 @@
                         <span id="stat-packed-vol" class="font-bold text-emerald-400 text-sm">0.00 CBM</span>
                     </div>
                 </div>
-                <div class="space-y-1">
-                    <div class="flex justify-between text-xs font-medium">
-                        <span class="text-slate-400">Space Utilization</span>
-                        <span id="stat-efficiency" class="text-white font-bold">0%</span>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">Packed Units</span>
+                        <span id="stat-packed-units" class="font-bold text-indigo-300 text-sm">0 / 0</span>
                     </div>
-                    <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                        <div id="efficiency-bar" class="bg-indigo-500 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">Space Utilization</span>
+                        <span id="stat-efficiency" class="font-bold text-white text-sm">0%</span>
                     </div>
                 </div>
+                <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                    <div id="efficiency-bar" class="bg-indigo-500 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+                </div>
                 <div id="packing-summary-text" class="text-[11px] text-slate-400 italic">
-                    Run the algorithm to view loading results and sequence.
+                    Run the algorithm to test randomized multi-pass heuristics and fit maximum cartons.
                 </div>
             </div>
 
@@ -172,7 +176,7 @@
 
             <!-- 3D Legend / Quick Toggle -->
             <div class="absolute top-4 right-4 z-10 bg-slate-900/80 backdrop-blur border border-slate-700/60 rounded-lg p-2 text-xs text-slate-300 shadow-lg flex items-center space-x-2">
-                <span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></i></span>
+                <span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></span>
                 <span id="canvas-status-label" class="font-medium">Container Empty</span>
             </div>
         </div>
@@ -187,7 +191,7 @@
                 </div>
                 <div>
                     <div id="step-instruction-title" class="text-xs font-semibold text-slate-400 uppercase">Loading Step 0 of 0</div>
-                    <div id="step-instruction-desc" class="text-sm font-medium text-white truncate max-w-md">Load container by running the packing algorithm.</div>
+                    <div id="step-instruction-desc" class="text-sm font-medium text-white truncate max-w-md">Load container by running the AI packing algorithm.</div>
                 </div>
             </div>
 
@@ -252,11 +256,11 @@
 
         // --- Preset Data ---
         const PRESET_ITEMS = [
-            { name: "Standard Carton A", l: 60, w: 40, h: 40, qty: 120, color: "#4f46e5" },
-            { name: "Medium Box B", l: 50, w: 30, h: 30, qty: 150, color: "#0ea5e9" },
-            { name: "Small Box C", l: 40, w: 20, h: 20, qty: 200, color: "#10b981" },
-            { name: "Heavy Crate D", l: 100, w: 80, h: 60, qty: 15, color: "#f59e0b" },
-            { name: "Long Pipe Pack E", l: 200, w: 30, h: 30, qty: 25, color: "#ec4899" }
+            { name: "Standard Carton A", l: 60, w: 40, h: 40, qty: 150, color: "#4f46e5" },
+            { name: "Medium Box B", l: 50, w: 30, h: 30, qty: 200, color: "#0ea5e9" },
+            { name: "Small Box C", l: 40, w: 20, h: 20, qty: 300, color: "#10b981" },
+            { name: "Heavy Crate D", l: 100, w: 80, h: 60, qty: 25, color: "#f59e0b" },
+            { name: "Long Pipe Pack E", l: 200, w: 30, h: 30, qty: 40, color: "#ec4899" }
         ];
 
         // --- Initialize App on Load ---
@@ -264,14 +268,12 @@
             initThreeJS();
             loadPresetData();
             
-            // Handle window resizing
             window.addEventListener('resize', onWindowResize);
 
-            // Container change listener
             document.getElementById('container-select').addEventListener('change', () => {
                 updateContainerWireframe();
                 if (packedResult) {
-                    runPackingAlgorithm(); // Re-run with new container size
+                    runPackingAlgorithm();
                 }
             });
         });
@@ -310,7 +312,6 @@
             dirLight2.position.set(-20, -10, -20);
             scene.add(dirLight2);
 
-            // Grid helper on floor
             const gridHelper = new THREE.GridHelper(30, 30, 0x334155, 0x1e293b);
             gridHelper.position.y = -0.01;
             scene.add(gridHelper);
@@ -341,12 +342,10 @@
             const typeKey = document.getElementById('container-select').value;
             const spec = CONTAINERS[typeKey];
 
-            // Container dimensions in meters
             const L = spec.l;
             const W = spec.w;
             const H = spec.h;
 
-            // Wireframe box
             const boxGeo = new THREE.BoxGeometry(L, H, W);
             const edges = new THREE.EdgesGeometry(boxGeo);
             const lineMat = new THREE.LineBasicMaterial({ color: 0x6366f1, transparent: true, opacity: 0.6 });
@@ -354,7 +353,6 @@
             wireframeBox.position.set(L / 2, H / 2, W / 2);
             containerMeshGroup.add(wireframeBox);
 
-            // Semi-transparent floor
             const floorGeo = new THREE.PlaneGeometry(L, W);
             const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
             const floor = new THREE.Mesh(floorGeo, floorMat);
@@ -362,7 +360,6 @@
             floor.position.set(L / 2, 0, W / 2);
             containerMeshGroup.add(floor);
 
-            // Adjust controls target
             controls.target.set(L / 2, H / 2, 0);
         }
 
@@ -453,45 +450,11 @@
         }
 
 
-        // --- Advanced 3D Bin Packing Algorithm (Shelf & Best-Fit Heuristic with Rotations) ---
-        function runPackingAlgorithm() {
-            if (!rawItemsData || rawItemsData.length === 0) {
-                showModal("Warning", "Please load cargo items first.");
-                return;
-            }
-
-            const typeKey = document.getElementById('container-select').value;
-            const containerSpec = CONTAINERS[typeKey];
-
-            // Convert container dimensions to cm for precision packing calculation
-            const cL = containerSpec.l * 100;
-            const cW = containerSpec.w * 100;
-            const cH = containerSpec.h * 100;
-
-            // Expand individual box units from quantities
-            let itemsPool = [];
-            let idCounter = 1;
-            rawItemsData.forEach((item, itemIdx) => {
-                for (let q = 0; q < item.qty; q++) {
-                    itemsPool.push({
-                        id: idCounter++,
-                        name: item.name,
-                        l: item.l,
-                        w: item.w,
-                        h: item.h,
-                        color: item.color,
-                        volume: item.l * item.w * item.h
-                    });
-                }
-            });
-
-            // Sort items by volume descending (heuristic)
-            itemsPool.sort((a, b) => b.volume - a.volume);
-
+        // --- Advanced Multi-Pass Randomized 3D Packing Heuristic ---
+        function runSinglePackingPass(itemsPool, cL, cW, cH, rotationPriority = 0) {
             let packedBoxes = [];
             let unpackedBoxes = [];
 
-            // Shelf / Layer-based 3D bin packing implementation
             let currentX = 0;
             let currentY = 0;
             let currentZ = 0;
@@ -499,8 +462,8 @@
             let layerMaxH = 0;
 
             itemsPool.forEach(box => {
-                // Generate all 6 possible 3D orientations
-                const orientations = [
+                // Generate 6 possible 3D orientations, reordered based on priority pass
+                let orientations = [
                     { l: box.l, w: box.w, h: box.h },
                     { l: box.l, w: box.h, h: box.w },
                     { l: box.w, w: box.l, h: box.h },
@@ -509,7 +472,14 @@
                     { l: box.h, w: box.w, h: box.l }
                 ];
 
-                // Find first valid orientation that fits in current shelf/space
+                if (rotationPriority === 1) {
+                    // Prioritize lowest height orientation first to conserve vertical layers
+                    orientations.sort((a, b) => a.h - b.h);
+                } else if (rotationPriority === 2) {
+                    // Prioritize largest base area orientation first
+                    orientations.sort((a, b) => (b.l * b.w) - (a.l * a.w));
+                }
+
                 let fitted = false;
                 for (let ori of orientations) {
                     if (currentX + ori.l <= cL && currentZ + ori.w <= cW && currentY + ori.h <= cH) {
@@ -535,7 +505,6 @@
                 }
 
                 if (!fitted) {
-                    // Try moving to next row in same layer
                     currentX = 0;
                     currentZ += rowMaxW;
                     rowMaxW = 0;
@@ -565,7 +534,6 @@
                     }
 
                     if (!fittedNextRow) {
-                        // Try moving to next vertical layer
                         currentX = 0;
                         currentZ = 0;
                         currentY += layerMaxH;
@@ -603,20 +571,89 @@
                 }
             });
 
-            // Group packed boxes into sequential loading steps (back-to-front along Z/X, bottom-to-top along Y)
+            const packedVolume = packedBoxes.reduce((sum, b) => sum + b.volume, 0);
+            return { packedBoxes, unpackedBoxes, packedVolume };
+        }
+
+        function runPackingAlgorithm() {
+            if (!rawItemsData || rawItemsData.length === 0) {
+                showModal("Warning", "Please load cargo items first.");
+                return;
+            }
+
+            const typeKey = document.getElementById('container-select').value;
+            const containerSpec = CONTAINERS[typeKey];
+
+            const cL = containerSpec.l * 100;
+            const cW = containerSpec.w * 100;
+            const cH = containerSpec.h * 100;
+
+            let baseItemsPool = [];
+            let idCounter = 1;
+            rawItemsData.forEach(item => {
+                for (let q = 0; q < item.qty; q++) {
+                    baseItemsPool.push({
+                        id: idCounter++,
+                        name: item.name,
+                        l: item.l,
+                        w: item.w,
+                        h: item.h,
+                        color: item.color,
+                        volume: item.l * item.w * item.h
+                    });
+                }
+            });
+
+            // Define multi-pass strategies to maximize packed count and efficiency
+            let candidatePasses = [];
+
+            // Pass 1: Volume descending (Standard Best-Fit)
+            let pool1 = [...baseItemsPool].sort((a, b) => b.volume - a.volume);
+            candidatePasses.push(runSinglePackingPass(pool1, cL, cW, cH, 0));
+            candidatePasses.push(runSinglePackingPass(pool1, cL, cW, cH, 1));
+            candidatePasses.push(runSinglePackingPass(pool1, cL, cW, cH, 2));
+
+            // Pass 2: Longest dimension descending
+            let pool2 = [...baseItemsPool].sort((a, b) => Math.max(b.l, b.w, b.h) - Math.max(a.l, a.w, a.h));
+            candidatePasses.push(runSinglePackingPass(pool2, cL, cW, cH, 0));
+            candidatePasses.push(runSinglePackingPass(pool2, cL, cW, cH, 2));
+
+            // Pass 3: Randomized / shuffled heuristic pass to explore non-linear combinations
+            let pool3 = [...baseItemsPool].sort(() => Math.random() - 0.5);
+            candidatePasses.push(runSinglePackingPass(pool3, cL, cW, cH, 0));
+            candidatePasses.push(runSinglePackingPass(pool3, cL, cW, cH, 1));
+
+            // Pass 4: Surface area descending
+            let pool4 = [...baseItemsPool].sort((a, b) => (b.l * b.w + b.w * b.h + b.h * b.l) - (a.l * a.w + a.w * a.h + a.h * a.l));
+            candidatePasses.push(runSinglePackingPass(pool4, cL, cW, cH, 0));
+            candidatePasses.push(runSinglePackingPass(pool4, cL, cW, cH, 1));
+
+            // Select the best result (maximizing packed units count first, then packed volume)
+            let bestPass = candidatePasses[0];
+            for (let i = 1; i < candidatePasses.length; i++) {
+                const cur = candidatePasses[i];
+                if (cur.packedBoxes.length > bestPass.packedBoxes.length || 
+                   (cur.packedBoxes.length === bestPass.packedBoxes.length && cur.packedVolume > bestPass.packedVolume)) {
+                    bestPass = cur;
+                }
+            }
+
+            let packedBoxes = bestPass.packedBoxes;
+            let unpackedBoxes = bestPass.unpackedBoxes;
+
+            // Group packed boxes into sequential loading steps (back-to-front, bottom-to-top)
             packedBoxes.sort((a, b) => {
-                if (a.y !== b.y) return a.y - b.y; // Bottom to top
-                if (a.z !== b.z) return a.z - b.z; // Back to front
+                if (a.y !== b.y) return a.y - b.y;
+                if (a.z !== b.z) return a.z - b.z;
                 return a.x - b.x;
             });
 
-            // Create loading steps (group by Y layer and Z depth batches)
             let steps = [];
             let currentStepItems = [];
             let lastY = packedBoxes.length > 0 ? packedBoxes[0].y : 0;
             let lastZ = packedBoxes.length > 0 ? packedBoxes[0].z : 0;
 
-            packedBoxes.forEach((box, index) => {
+            packedBoxes.forEach((box) => {
                 if (Math.abs(box.y - lastY) > 50 || Math.abs(box.z - lastZ) > 150 || currentStepItems.length >= 15) {
                     if (currentStepItems.length > 0) {
                         steps.push([...currentStepItems]);
@@ -636,8 +673,8 @@
                 packedBoxes,
                 unpackedBoxes,
                 steps,
-                totalVolume: cL * cW * cH / 1000000, // CBM
-                packedVolume: packedBoxes.reduce((sum, b) => sum + b.volume, 0) / 1000000
+                totalVolume: cL * cW * cH / 1000000,
+                packedVolume: bestPass.packedVolume / 1000000
             };
 
             updateStatsAndUI();
@@ -658,9 +695,11 @@
             document.getElementById('efficiency-bar').style.width = `${efficiency}%`;
 
             const packedCount = packedResult.packedBoxes.length;
-            const unpackedCount = packedResult.unpackedBoxes.length;
+            const totalUnitsCount = packedCount + packedResult.unpackedBoxes.length;
+            document.getElementById('stat-packed-units').innerText = `${packedCount} / ${totalUnitsCount}`;
+
             document.getElementById('packing-summary-text').innerText = 
-                `Successfully packed ${packedCount} items. ${unpackedCount > 0 ? unpackedCount + ' items did not fit.' : 'All items fit perfectly!'}`;
+                `AI Multi-pass optimized: Packed ${packedCount} of ${totalUnitsCount} units. ${packedResult.unpackedBoxes.length > 0 ? packedResult.unpackedBoxes.length + ' items did not fit.' : 'All items fit perfectly!'}`;
 
             currentStepIndex = 0;
             updateStepView();
@@ -673,8 +712,7 @@
 
             if (!packedResult || packedResult.packedBoxes.length === 0) return;
 
-            packedResult.packedBoxes.forEach((box, index) => {
-                // Dimensions in meters
+            packedResult.packedBoxes.forEach((box) => {
                 const bL = box.l / 100;
                 const bW = box.w / 100;
                 const bH = box.h / 100;
@@ -690,15 +728,12 @@
                 mesh.castShadow = true;
                 mesh.receiveShadow = true;
 
-                // Center position in Three.js coordinates (X right, Y up, Z depth)
-                // Container starts at origin (0,0,0) to (L, H, W)
                 mesh.position.set(
                     (box.x / 100) + (bL / 2),
                     (box.y / 100) + (bH / 2),
                     (box.z / 100) + (bW / 2)
                 );
 
-                // Add edge lines for premium CAD look
                 const edges = new THREE.EdgesGeometry(geom);
                 const lineMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
                 const wireframe = new THREE.LineSegments(edges, lineMat);
@@ -729,7 +764,6 @@
             if (currentStepIndex >= totalSteps) currentStepIndex = totalSteps - 1;
             if (currentStepIndex < 0) currentStepIndex = 0;
 
-            // Update instruction text
             document.getElementById('step-instruction-title').innerText = `Loading Step ${currentStepIndex + 1} of ${totalSteps}`;
             
             const currentBatch = packedResult.steps[currentStepIndex];
@@ -742,7 +776,6 @@
             document.getElementById('step-instruction-desc').innerText = `Place: ${descList}`;
             document.getElementById('canvas-status-label').innerText = `Step ${currentStepIndex + 1} / ${totalSteps}`;
 
-            // Show/hide meshes based on current step
             allBoxMeshes.forEach(mesh => {
                 const sIdx = mesh.userData.stepIndex;
                 if (sIdx <= currentStepIndex) {
@@ -799,7 +832,7 @@
 
         function startPlayback() {
             if (currentStepIndex >= packedResult.steps.length - 1) {
-                currentStepIndex = 0; // Restart if at end
+                currentStepIndex = 0;
             }
             isPlaying = true;
             document.getElementById('play-icon').className = "fa-solid fa-pause";
@@ -812,7 +845,7 @@
                 } else {
                     stopPlayback();
                 }
-            }, 1500); // 1.5s per step
+            }, 1500);
         }
 
         function stopPlayback() {
