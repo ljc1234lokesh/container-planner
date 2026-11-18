@@ -67,11 +67,7 @@
             <!-- CSV Upload & Templates -->
             <div class="space-y-2">
                 <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">2. Cargo Data Source</label>
-                <div class="grid grid-cols-2 gap-2">
-                    <button onclick="loadPresetData()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center justify-center space-x-1.5 transition">
-                        <i class="fa-solid fa-boxes-stacked text-indigo-400"></i>
-                        <span>Load 1007 Preset</span>
-                    </button>
+                <div class="grid grid-cols-1 gap-2">
                     <button onclick="downloadTemplate()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center justify-center space-x-1.5 transition">
                         <i class="fa-solid fa-file-arrow-down text-emerald-400"></i>
                         <span>Get Template</span>
@@ -269,43 +265,9 @@
         let boxesMeshGroup = new THREE.Group();
         let allBoxMeshes = [];
 
-        // --- Exact 28-SKU User Dataset (1,007 Cartons, ~67.48 CBM) ---
-        const PRESET_ITEMS = [
-            { name: "LC-79669", l: 39, w: 29, h: 44, qty: 15, color: PALETTE[0] },
-            { name: "LC-79673", l: 42, w: 21, h: 55, qty: 20, color: PALETTE[1] },
-            { name: "LC-79679", l: 40, w: 35, h: 50, qty: 100, color: PALETTE[2] },
-            { name: "LC-79680", l: 64, w: 32, h: 47, qty: 160, color: PALETTE[3] },
-            { name: "LC-79682/L", l: 33, w: 31, h: 49, qty: 60, color: PALETTE[4] },
-            { name: "LC-79682/S", l: 48, w: 39, h: 50, qty: 30, color: PALETTE[5] },
-            { name: "LC-79688", l: 50, w: 39, h: 57, qty: 30, color: PALETTE[6] },
-            { name: "LC-79689", l: 34, w: 28, h: 56, qty: 40, color: PALETTE[7] },
-            { name: "LC-79690", l: 40, w: 36, h: 60, qty: 40, color: PALETTE[8] },
-            { name: "LC-79691", l: 36, w: 36, h: 44, qty: 20, color: PALETTE[9] },
-            { name: "LC-79692", l: 36, w: 36, h: 35, qty: 20, color: PALETTE[10] },
-            { name: "LC-79693", l: 40, w: 40, h: 46, qty: 30, color: PALETTE[11] },
-            { name: "LC-79694", l: 36, w: 31, h: 45, qty: 30, color: PALETTE[12] },
-            { name: "LC-79653", l: 32, w: 30, h: 40, qty: 20, color: PALETTE[13] },
-            { name: "LC-79654", l: 48, w: 29, h: 30, qty: 30, color: PALETTE[14] },
-            { name: "LC-79655", l: 36, w: 30, h: 37, qty: 40, color: PALETTE[15] },
-            { name: "LC-60238", l: 30, w: 20, h: 60, qty: 20, color: PALETTE[16] },
-            { name: "LC-90134/L", l: 45, w: 29, h: 56, qty: 40, color: PALETTE[17] },
-            { name: "LC-90134/S", l: 38, w: 24, h: 49, qty: 30, color: PALETTE[18] },
-            { name: "LC-47932/GLD", l: 33, w: 30, h: 51, qty: 30, color: PALETTE[19] },
-            { name: "LC-47870/G", l: 31, w: 29, h: 38, qty: 10, color: PALETTE[20] },
-            { name: "LC-47870/R", l: 31, w: 29, h: 38, qty: 10, color: PALETTE[21] },
-            { name: "LC-47927/L", l: 37, w: 23, h: 47, qty: 16, color: PALETTE[22] },
-            { name: "LC-47931", l: 45, w: 45, h: 39, qty: 96, color: PALETTE[23] },
-            { name: "LC-79818/XL", l: 45, w: 45, h: 38, qty: 20, color: PALETTE[24] },
-            { name: "LC-79818/L", l: 50, w: 50, h: 30, qty: 20, color: PALETTE[25] },
-            { name: "LC-79818/M", l: 40, w: 40, h: 30, qty: 15, color: PALETTE[26] },
-            { name: "LC-79818/S", l: 35, w: 35, h: 28, qty: 15, color: PALETTE[27] }
-        ];
-
         // --- Initialize App on Load ---
         window.addEventListener('DOMContentLoaded', () => {
             initThreeJS();
-            loadPresetData();
-            runPackingAlgorithm();
             
             window.addEventListener('resize', onWindowResize);
 
@@ -434,21 +396,17 @@
         }
 
         // --- Data Management & Template ---
-        function loadPresetData() {
-            rawItemsData = JSON.parse(JSON.stringify(PRESET_ITEMS));
-            renderCargoTable();
-        }
-
         function downloadTemplate() {
             let csvContent = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\n";
-            PRESET_ITEMS.forEach(item => {
-                csvContent += `${item.name},${item.l},${item.w},${item.h},${item.qty},${item.color}\n`;
-            });
+            csvContent += "Carton-A,40,30,20,50,#4f46e5\n";
+            csvContent += "Carton-B,50,40,30,30,#10b981\n";
+            csvContent += "Carton-C,60,50,40,20,#f59e0b\n";
+            
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = "cargo_template_1007_items.csv";
+            a.download = "cargo_template.csv";
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
