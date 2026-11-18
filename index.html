@@ -1,510 +1,850 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="h-full">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>3D Container Stuffing Planner</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r152/three.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    body { margin:0; background:#0f172a; color:#e2e8f0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
-    .panel { background:#111c30; border:1px solid #263449; }
-    .field { width:100%; background:#0b1424; border:1px solid #334155; border-radius:.55rem; padding:.62rem .72rem; color:#e2e8f0; outline:none; }
-    .field:focus { border-color:#38bdf8; box-shadow:0 0 0 2px #0ea5e933; }
-    .btn { border-radius:.55rem; padding:.65rem .85rem; font-weight:650; transition:.15s; }
-    .btn:disabled { opacity:.4; cursor:not-allowed; }
-    .btn-primary { background:#0284c7; color:white; } .btn-primary:hover:not(:disabled) { background:#0369a1; }
-    .btn-secondary { background:#263449; color:#e2e8f0; } .btn-secondary:hover:not(:disabled) { background:#334155; }
-    .btn-green { background:#047857; color:white; } .btn-green:hover:not(:disabled) { background:#065f46; }
-    #viewport { position:relative; width:100%; height:100%; min-height:480px; overflow:hidden; background:#1e293b; }
-    #viewport canvas { display:block; width:100%; height:100%; touch-action:none; }
-    .hint { position:absolute; top:14px; left:14px; max-width:calc(100% - 28px); pointer-events:none; background:#020617d9; border:1px solid #64748b; border-radius:9px; padding:9px 12px; color:#f8fafc; font-size:12px; line-height:1.55; text-shadow:0 1px 2px #000; }
-    .step-card { background:#0b1424; border:1px solid #334155; border-radius:.65rem; }
-    .stat-value { font-variant-numeric:tabular-nums; }
-    .progress-track { height:9px; border-radius:99px; background:#334155; overflow:hidden; }
-    #progressBar { height:100%; width:0; background:linear-gradient(90deg,#0ea5e9,#34d399); transition:width .25s; }
-    .small-scroll { max-height:180px; overflow:auto; }
-    @media (min-width: 1024px) { #viewport { min-height:calc(100vh - 100px); } }
-    @media (max-width: 1023px) { #viewport { height:62vh; min-height:430px; } }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Container Stuffing Planner</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- PapaParse CDN for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom scrollbar for sidebar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
 </head>
-<body>
-  <header class="border-b border-slate-700 bg-slate-950 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-    <div>
-      <div class="text-lg sm:text-xl font-bold tracking-tight">3D Container Stuffing Planner</div>
-      <div class="text-xs text-slate-400">CSV import · 3D placement · loading sequence · tally export</div>
+<body class="h-full bg-slate-900 text-slate-100 overflow-hidden flex flex-col lg:flex-row">
+
+    <!-- Notification / Message Box Modal -->
+    <div id="modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full shadow-2xl">
+            <h3 id="modal-title" class="text-lg font-bold text-white mb-2">Notice</h3>
+            <p id="modal-message" class="text-slate-300 text-sm mb-6"></p>
+            <div class="flex justify-end">
+                <button onclick="closeModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition">OK</button>
+            </div>
+        </div>
     </div>
-    <div class="text-xs text-slate-400">Runs in your browser · No upload to a server</div>
-  </header>
 
-  <main class="grid grid-cols-1 lg:grid-cols-[340px_minmax(0,1fr)] gap-3 p-3">
-    <aside class="space-y-3">
-      <section class="panel rounded-xl p-4 space-y-3">
-        <h2 class="font-bold text-slate-100">Container settings</h2>
-        <label class="block text-sm text-slate-300">Container type
-          <select id="containerType" class="field mt-1">
-            <option value="20">20' Standard · 28 CBM capacity</option>
-            <option value="40">40' Standard · 58 CBM capacity</option>
-            <option value="40hc">40' High Cube · 68 CBM capacity</option>
-          </select>
-        </label>
-        <div class="grid grid-cols-3 gap-2 text-xs">
-          <div class="rounded-lg bg-slate-900 p-2"><div class="text-slate-500">Length</div><div id="dimL" class="font-semibold mt-1">5.90 m</div></div>
-          <div class="rounded-lg bg-slate-900 p-2"><div class="text-slate-500">Width</div><div id="dimW" class="font-semibold mt-1">2.35 m</div></div>
-          <div class="rounded-lg bg-slate-900 p-2"><div class="text-slate-500">Height</div><div id="dimH" class="font-semibold mt-1">2.39 m</div></div>
+    <!-- SIDEBAR CONTROLS -->
+    <aside class="w-full lg:w-96 bg-slate-900 border-r border-slate-800 flex flex-col h-full z-10 shadow-xl overflow-hidden">
+        <!-- Header -->
+        <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md">
+                    <i class="fa-solid fa-cube"></i>
+                </div>
+                <h1 class="font-bold text-base tracking-tight text-white">CargoPack 3D</h1>
+            </div>
+            <span class="text-xs px-2 py-1 bg-indigo-950 text-indigo-400 border border-indigo-800/50 rounded-md font-mono">v1.2</span>
         </div>
-        <p class="text-[11px] text-slate-500">Approximate internal dimensions for planning. Capacity figures are the selected working CBM limits; always verify the actual container's dimensions and payload.</p>
-      </section>
 
-      <section class="panel rounded-xl p-4 space-y-3">
-        <div class="flex items-center justify-between gap-2">
-          <h2 class="font-bold">Item data</h2><span id="itemCount" class="text-xs text-slate-400">0 units</span>
-        </div>
-        <input id="csvFile" type="file" accept=".csv,text/csv" class="field text-sm" />
-        <div class="grid grid-cols-2 gap-2">
-          <button id="templateBtn" class="btn btn-secondary text-xs">Download CSV Template</button>
-          <button id="sampleBtn" class="btn btn-secondary text-xs">Load Sample Data</button>
-        </div>
-        <div id="fileStatus" class="text-xs text-slate-400" aria-live="polite">Upload a CSV with item dimensions in centimetres.</div>
-        <div class="text-[11px] text-slate-500">Required headers: Item Name, Length (cm), Width (cm), Height (cm), Quantity. Color is optional.</div>
-        <div id="itemPreview" class="small-scroll text-xs text-slate-400 space-y-1"></div>
-        <button id="packBtn" class="btn btn-primary w-full" disabled>Pack items in container</button>
-      </section>
+        <!-- Scrollable Controls -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-5">
+            
+            <!-- Container Settings -->
+            <div class="space-y-2">
+                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>1. Container Type</span>
+                </label>
+                <select id="container-select" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
+                    <option value="20ft">20' Standard (5.9m x 2.35m x 2.39m - 28 CBM)</option>
+                    <option value="40ft" selected>40' Standard (12.0m x 2.35m x 2.39m - 58 CBM)</option>
+                    <option value="40hc">40' High Cube (12.0m x 2.35m x 2.69m - 68 CBM)</option>
+                </select>
+            </div>
 
-      <section class="panel rounded-xl p-4 space-y-3">
-        <h2 class="font-bold">Packing statistics</h2>
-        <div class="grid grid-cols-3 gap-2">
-          <div class="bg-slate-900 rounded-lg p-2"><div class="text-[10px] text-slate-500">Total CBM</div><div id="totalCbm" class="stat-value text-base font-bold mt-1">28.00</div></div>
-          <div class="bg-slate-900 rounded-lg p-2"><div class="text-[10px] text-slate-500">Used CBM</div><div id="usedCbm" class="stat-value text-base font-bold mt-1">0.00</div></div>
-          <div class="bg-slate-900 rounded-lg p-2"><div class="text-[10px] text-slate-500">Efficiency</div><div id="efficiency" class="stat-value text-base font-bold mt-1">0.0%</div></div>
-        </div>
-        <div class="progress-track"><div id="progressBar"></div></div>
-        <div class="flex justify-between text-xs text-slate-400"><span id="packedUnits">0 / 0 units packed</span><span id="unpackedUnits">0 not packed</span></div>
-        <div id="packMessage" class="text-xs text-slate-400" aria-live="polite">Import items, then run the packing planner.</div>
-      </section>
+            <!-- CSV Upload & Templates -->
+            <div class="space-y-2">
+                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">2. Cargo Data Source</label>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="loadPresetData()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center justify-center space-x-1.5 transition">
+                        <i class="fa-solid fa-boxes-stacked text-indigo-400"></i>
+                        <span>Load Preset</span>
+                    </button>
+                    <button onclick="downloadTemplate()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center justify-center space-x-1.5 transition">
+                        <i class="fa-solid fa-file-arrow-down text-emerald-400"></i>
+                        <span>Get Template</span>
+                    </button>
+                </div>
+                <div class="relative border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-lg p-3 text-center transition bg-slate-800/40">
+                    <input type="file" id="csv-file-input" accept=".csv" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="handleFileUpload(event)">
+                    <div class="flex flex-col items-center pointer-events-none space-y-1">
+                        <i class="fa-solid fa-cloud-arrow-up text-indigo-400 text-lg"></i>
+                        <span class="text-xs text-slate-300 font-medium">Upload custom CSV file</span>
+                        <span class="text-[10px] text-slate-500">Name, L, W, H, Qty, Color</span>
+                    </div>
+                </div>
+            </div>
 
-      <section class="panel rounded-xl p-4 space-y-3">
-        <h2 class="font-bold">Loading sequence</h2>
-        <div class="step-card p-3 space-y-2">
-          <div class="flex justify-between text-xs text-slate-400"><span id="stepCounter">No sequence</span><span id="stepUnits">—</span></div>
-          <div id="stepInstruction" class="text-sm font-semibold text-slate-100">Pack items to generate warehouse loading instructions.</div>
-          <div id="stepDetails" class="text-xs text-slate-400"></div>
+            <!-- Cargo Summary & Table Preview -->
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">3. Cargo Items List</label>
+                    <span id="total-items-badge" class="text-xs bg-slate-800 text-indigo-300 px-2 py-0.5 rounded-full border border-slate-700">0 items</span>
+                </div>
+                <div class="max-h-40 overflow-y-auto border border-slate-800 rounded-lg bg-slate-950/40">
+                    <table class="w-full text-left text-xs text-slate-300">
+                        <thead class="bg-slate-900 sticky top-0 text-slate-400 border-b border-slate-800">
+                            <tr>
+                                <th class="p-2">Item</th>
+                                <th class="p-2">Dims (cm)</th>
+                                <th class="p-2">Qty</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cargo-table-body" class="divide-y divide-slate-800/60">
+                            <tr>
+                                <td colspan="3" class="p-3 text-center text-slate-500 italic">No items loaded yet.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Run Calculation Button -->
+            <button onclick="runPackingAlgorithm()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 transition transform active:scale-95">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                <span>Run 3D Packing Algorithm</span>
+            </button>
+
+            <!-- Packing Stats Panel -->
+            <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3.5 space-y-3">
+                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                    <span>Packing Statistics</span>
+                    <i class="fa-solid fa-chart-pie text-indigo-400"></i>
+                </h4>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">Container Vol</span>
+                        <span id="stat-container-vol" class="font-bold text-white text-sm">0.00 CBM</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">Packed Vol</span>
+                        <span id="stat-packed-vol" class="font-bold text-emerald-400 text-sm">0.00 CBM</span>
+                    </div>
+                </div>
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-medium">
+                        <span class="text-slate-400">Space Utilization</span>
+                        <span id="stat-efficiency" class="text-white font-bold">0%</span>
+                    </div>
+                    <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
+                        <div id="efficiency-bar" class="bg-indigo-500 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div id="packing-summary-text" class="text-[11px] text-slate-400 italic">
+                    Run the algorithm to view loading results and sequence.
+                </div>
+            </div>
+
+            <!-- Tally Sheet Export -->
+            <button onclick="downloadTallySheet()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center justify-center space-x-2 transition">
+                <i class="fa-solid fa-file-excel text-emerald-400"></i>
+                <span>Download Warehouse Tally Sheet (.csv)</span>
+            </button>
+
         </div>
-        <div class="grid grid-cols-3 gap-2">
-          <button id="prevBtn" class="btn btn-secondary text-sm" disabled>← Prev</button>
-          <button id="nextBtn" class="btn btn-secondary text-sm" disabled>Next →</button>
-          <button id="fullBtn" class="btn btn-green text-xs" disabled>Show Full</button>
-        </div>
-        <button id="tallyBtn" class="btn btn-secondary w-full text-sm" disabled>Download Excel Tally Sheet (CSV)</button>
-      </section>
-      <div class="text-[11px] leading-relaxed text-slate-500 px-1">Packing is a heuristic plan, not a certified load plan. It does not model weight, crush strength, dunnage, doors, forklift access, hazardous segregation, or securing. Check the final load physically.</div>
     </aside>
 
-    <section class="min-w-0 space-y-3">
-      <div class="rounded-xl overflow-hidden border border-slate-700 shadow-2xl">
-        <div id="viewport">
-          <div class="hint"><strong>Controls</strong><br>Touch / Left Click: Rotate<br>Right Click: Pan<br>Scroll / Pinch: Zoom</div>
-          <div id="loadingOverlay" class="absolute inset-0 flex items-center justify-center text-sm text-slate-300 pointer-events-none">Preparing 3D view…</div>
+    <!-- MAIN 3D VIEWPORT & PLAYBACK -->
+    <main class="flex-1 flex flex-col h-full relative overflow-hidden bg-slate-950">
+        
+        <!-- Canvas Viewport -->
+        <div id="canvas-container" class="flex-1 w-full h-full relative cursor-grab active:cursor-grabbing">
+            <!-- Instructional Overlay -->
+            <div class="absolute top-4 left-4 z-10 pointer-events-none bg-slate-900/80 backdrop-blur border border-slate-700/60 rounded-lg px-3 py-2 text-[11px] text-slate-300 shadow-lg flex items-center space-x-3">
+                <div><i class="fa-solid fa-rotate text-indigo-400 mr-1"></i> Left Click/Touch: Rotate</div>
+                <div class="text-slate-600">|</div>
+                <div><i class="fa-solid fa-hand text-indigo-400 mr-1"></i> Right Click: Pan</div>
+                <div class="text-slate-600">|</div>
+                <div><i class="fa-solid fa-magnifying-glass-plus text-indigo-400 mr-1"></i> Scroll: Zoom</div>
+            </div>
+
+            <!-- 3D Legend / Quick Toggle -->
+            <div class="absolute top-4 right-4 z-10 bg-slate-900/80 backdrop-blur border border-slate-700/60 rounded-lg p-2 text-xs text-slate-300 shadow-lg flex items-center space-x-2">
+                <span class="w-3 h-3 rounded-full bg-indigo-500 inline-block"></i></span>
+                <span id="canvas-status-label" class="font-medium">Container Empty</span>
+            </div>
         </div>
-      </div>
-      <div class="flex flex-wrap items-center justify-between gap-2 px-1 text-xs text-slate-400">
-        <span>View: container door is at the front (right-hand end of the model).</span>
-        <span id="viewStatus">Waiting for items</span>
-      </div>
-    </section>
-  </main>
 
-<script>
-(() => {
-  "use strict";
+        <!-- Step-by-Step Playback Controls Bar -->
+        <div class="bg-slate-900 border-t border-slate-800 p-4 shadow-2xl z-20 flex flex-col md:flex-row items-center justify-between gap-4">
+            
+            <!-- Current Step Info -->
+            <div class="flex items-center space-x-3 w-full md:w-auto">
+                <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-400 font-bold text-sm shrink-0">
+                    <i class="fa-solid fa-list-ol"></i>
+                </div>
+                <div>
+                    <div id="step-instruction-title" class="text-xs font-semibold text-slate-400 uppercase">Loading Step 0 of 0</div>
+                    <div id="step-instruction-desc" class="text-sm font-medium text-white truncate max-w-md">Load container by running the packing algorithm.</div>
+                </div>
+            </div>
 
-  const CONTAINERS = {
-    "20":   { name:"20' Standard", length:5.90, width:2.35, height:2.39, capacity:28 },
-    "40":   { name:"40' Standard", length:12.03, width:2.35, height:2.39, capacity:58 },
-    "40hc": { name:"40' High Cube", length:12.03, width:2.35, height:2.69, capacity:68 }
-  };
-  const $ = id => document.getElementById(id);
-  let sourceItems = [], packedBoxes = [], steps = [], currentStep = -1, scene, camera, renderer, controls;
-  let boxGroup, containerGroup, resizeObserver;
+            <!-- Playback Buttons -->
+            <div class="flex items-center space-x-2 w-full md:w-auto justify-center">
+                <button onclick="stepFirst()" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs font-medium transition" title="First Step">
+                    <i class="fa-solid fa-backward-step"></i>
+                </button>
+                <button onclick="stepPrev()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
+                    <i class="fa-solid fa-chevron-left"></i>
+                    <span>Prev</span>
+                </button>
+                
+                <button id="play-pause-btn" onclick="togglePlayPause()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-md transition">
+                    <i id="play-icon" class="fa-solid fa-play"></i>
+                    <span id="play-text">Play Sequence</span>
+                </button>
 
-  function setStatus(message, isError=false) {
-    $("fileStatus").textContent = message;
-    $("fileStatus").className = "text-xs " + (isError ? "text-rose-400" : "text-slate-400");
-  }
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
-  }
-  function csvCell(value) {
-    const s = String(value ?? "");
-    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
-  }
-  function downloadCsv(filename, rows) {
-    const csv = "\uFEFF" + rows.map(row => row.map(csvCell).join(",")).join("\r\n");
-    const blob = new Blob([csv], {type:"text/csv;charset=utf-8;"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href=url; a.download=filename;
-    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-  }
-  function downloadTemplate() {
-    downloadCsv("container_stuffing_template.csv", [
-      ["Item Name","Length (cm)","Width (cm)","Height (cm)","Quantity","Color"],
-      ["Decorative Box","40","30","25","20","#e879f9"],
-      ["Wooden Tray","50","35","8","15","#f59e0b"]
-    ]);
-  }
-  function normalizeHeader(s) { return String(s || "").trim().toLowerCase().replace(/[\s_-]+/g,""); }
-  function parseRows(rows) {
-    const required = ["itemname","length(cm)","width(cm)","height(cm)","quantity"];
-    if (!rows.length) throw new Error("CSV is empty.");
-    const headers = Object.keys(rows[0] || {});
-    const map = {};
-    headers.forEach(h => map[normalizeHeader(h)] = h);
-    const aliases = {
-      name:["itemname","item","name","productname"],
-      l:["length(cm)","length","l(cm)","l"],
-      w:["width(cm)","width","w(cm)","w"],
-      h:["height(cm)","height","h(cm)","h"],
-      q:["quantity","qty","pcs"],
-      color:["color","colour"]
-    };
-    const find = key => aliases[key].map(a=>map[a]).find(Boolean);
-    const missing = required.filter(k => !map[k]);
-    if (missing.length) throw new Error("Missing required CSV columns: " + missing.join(", "));
-    const result = [];
-    rows.forEach((row, index) => {
-      if (!row || Object.values(row).every(v => String(v ?? "").trim()==="")) return;
-      const name = String(row[find("name")] || `Item ${index+1}`).trim();
-      const l=Number(row[find("l")]), w=Number(row[find("w")]), h=Number(row[find("h")]), q=Number(row[find("q")]);
-      if (![l,w,h,q].every(Number.isFinite) || l<=0 || w<=0 || h<=0 || !Number.isInteger(q) || q<=0)
-        throw new Error(`Invalid dimensions or quantity on CSV row ${index+2}. Use positive numbers and a whole-number quantity.`);
-      if (q > 10000) throw new Error(`Quantity on row ${index+2} is too large (maximum 10,000 per row).`);
-      result.push({name, l:l/100, w:w/100, h:h/100, qty:q, color:String(row[find("color")] || "").trim()});
-    });
-    if (!result.length) throw new Error("No valid item rows found.");
-    return result;
-  }
-  function setItems(items, label) {
-    sourceItems = items;
-    packedBoxes=[]; steps=[]; currentStep=-1;
-    $("itemCount").textContent = items.reduce((s,x)=>s+x.qty,0).toLocaleString()+" units";
-    $("packBtn").disabled=false;
-    $("tallyBtn").disabled=true; $("prevBtn").disabled=true; $("nextBtn").disabled=true; $("fullBtn").disabled=true;
-    $("packMessage").textContent="Ready to pack. Click “Pack items in container”.";
-    $("viewStatus").textContent=label;
-    renderPreview(); updateStats(0,0,0); updateStepUI(); rebuildScene();
-  }
-  function renderPreview() {
-    $("itemPreview").innerHTML = sourceItems.slice(0,8).map(x =>
-      `<div class="flex justify-between gap-2 border-b border-slate-800 py-1"><span class="truncate">${escapeHtml(x.name)}</span><span class="shrink-0">${x.qty} × ${Math.round(x.l*100)}×${Math.round(x.w*100)}×${Math.round(x.h*100)} cm</span></div>`
-    ).join("") + (sourceItems.length>8 ? `<div class="pt-1 text-slate-500">+ ${sourceItems.length-8} more SKU rows</div>` : "");
-  }
-  $("templateBtn").addEventListener("click", downloadTemplate);
-  $("sampleBtn").addEventListener("click", () => setItems([
-    {name:"Decorative Mirror Carton",l:.60,w:.45,h:.18,qty:12,color:"#60a5fa"},
-    {name:"Wooden Tray Carton",l:.50,w:.35,h:.25,qty:20,color:"#f59e0b"},
-    {name:"Metal Vase Carton",l:.40,w:.40,h:.55,qty:10,color:"#34d399"},
-    {name:"Photo Frame Carton",l:.55,w:.35,h:.12,qty:24,color:"#f472b6"}
-  ],"Sample data loaded"));
-  $("csvFile").addEventListener("change", event => {
-    const file=event.target.files && event.target.files[0]; if(!file) return;
-    setStatus("Reading "+file.name+"…");
-    $("packBtn").disabled=true;
-    Papa.parse(file, {
-      header:true, skipEmptyLines:"greedy", worker:true,
-      complete: results => {
-        try {
-          if(results.errors && results.errors.length) throw new Error(results.errors[0].message);
-          const items=parseRows(results.data);
-          setItems(items,"Imported "+file.name);
-          setStatus(`Imported ${items.length} SKU rows successfully.`);
-        } catch(err) { setStatus(err.message,true); $("packBtn").disabled=sourceItems.length===0; }
-      },
-      error: err => { setStatus("CSV read failed: "+err.message,true); $("packBtn").disabled=sourceItems.length===0; }
-    });
-  });
+                <button onclick="stepNext()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
+                    <span>Next</span>
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+                <button onclick="showFullContainer()" class="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-400 rounded-lg text-xs font-semibold transition" title="Show All Packed Boxes">
+                    <i class="fa-solid fa-eye mr-1"></i> Full View
+                </button>
+            </div>
 
-  function getContainer() { return CONTAINERS[$("containerType").value]; }
-  function updateContainerLabels() {
-    const c=getContainer();
-    $("dimL").textContent=c.length.toFixed(2)+" m"; $("dimW").textContent=c.width.toFixed(2)+" m"; $("dimH").textContent=c.height.toFixed(2)+" m";
-    $("totalCbm").textContent=c.capacity.toFixed(2);
-    $("packMessage").textContent="Container changed. Run packing again to update placements.";
-    if(scene) rebuildScene();
-  }
-  $("containerType").addEventListener("change", updateContainerLabels);
+        </div>
+    </main>
 
-  // Maximal-space style heuristic: place each carton in the best fitting free cuboid,
-  // then split the occupied free cuboid into residual spaces and prune contained spaces.
-  function intersects(a,b) {
-    const eps=1e-7;
-    return a.x < b.x+b.l-eps && a.x+a.l > b.x+eps &&
-           a.y < b.y+b.w-eps && a.y+a.w > b.y+eps &&
-           a.z < b.z+b.h-eps && a.z+a.h > b.z+eps;
-  }
-  function contains(a,b) {
-    const e=1e-7;
-    return a.x<=b.x+e && a.y<=b.y+e && a.z<=b.z+e &&
-      a.x+a.l>=b.x+b.l-e && a.y+a.w>=b.y+b.w-e && a.z+a.h>=b.z+b.h-e;
-  }
-  function pruneSpaces(spaces) {
-    const out=[];
-    for(let i=0;i<spaces.length;i++) {
-      const s=spaces[i]; if(s.l<.005 || s.w<.005 || s.h<.005) continue;
-      let contained=false;
-      for(let j=0;j<spaces.length;j++) if(i!==j && contains(spaces[j],s) &&
-        (spaces[j].l*spaces[j].w*spaces[j].h > s.l*s.w*s.h+1e-8)) { contained=true; break; }
-      if(!contained) out.push(s);
-    }
-    // Keep search bounded for very large SKU lists; retain largest useful spaces.
-    return out.sort((a,b)=>(b.l*b.w*b.h)-(a.l*a.w*a.h)).slice(0,1200);
-  }
-  function orientations(item) {
-    const vals=[[item.l,item.w,item.h],[item.l,item.h,item.w],[item.w,item.l,item.h],
-      [item.w,item.h,item.l],[item.h,item.l,item.w],[item.h,item.w,item.l]];
-    const seen=new Set();
-    return vals.filter(v=>{const k=v.map(n=>n.toFixed(5)).join("|"); if(seen.has(k))return false; seen.add(k);return true;});
-  }
-  function bestPlacement(item, spaces) {
-    let best=null;
-    for(let si=0;si<spaces.length;si++) {
-      const s=spaces[si];
-      for(const [l,w,h] of orientations(item)) {
-        if(l>s.l+1e-7 || w>s.w+1e-7 || h>s.h+1e-7) continue;
-        const leftover=[s.l-l,s.w-w,s.h-h];
-        const score=Math.min(...leftover)*1000 + leftover.reduce((a,b)=>a+b,0) +
-          (s.l*s.w*s.h-l*w*h)*.001;
-        if(!best || score<best.score) best={si,s,l,w,h,score};
-      }
-    }
-    return best;
-  }
-  function packAll() {
-    const c=getContainer(), eps=1e-6;
-    const units=[];
-    sourceItems.forEach((item,skuIndex)=>{
-      for(let n=0;n<item.qty;n++) units.push({...item,skuIndex,unitNo:n+1,volume:item.l*item.w*item.h});
-    });
-    // Largest cartons first, with stable ordering for repeatable plans.
-    units.sort((a,b)=>b.volume-a.volume || Math.max(b.l,b.w,b.h)-Math.max(a.l,a.w,a.h) || a.skuIndex-b.skuIndex);
-    let free=[{x:0,y:0,z:0,l:c.length,w:c.width,h:c.height}];
-    const placed=[];
-    let usedVolume=0;
-    for(const item of units) {
-      const p=bestPlacement(item,free);
-      if(!p) continue;
-      const {s,l,w,h}=p, x=s.x, y=s.y, z=s.z;
-      const box={...item,x,y,z,pl:l,pw:w,ph:h,volume:l*w*h};
-      // Guard against any numerical/algorithmic overlap before accepting placement.
-      if(x+l>c.length+eps || y+w>c.width+eps || z+h>c.height+eps || placed.some(b=>intersects(box,b))) continue;
-      placed.push(box); usedVolume+=box.volume;
-      free.splice(p.si,1);
-      const candidates=[
-        {x:x+l,y:y,z:z,l:s.l-l,w:s.w,h:s.h},
-        {x:x,y:y+w,z:z,l:l,w:s.w-w,h:s.h},
-        {x:x,y:y,z:z+h,l:l,w:w,h:s.h-h},
-        {x:x+l,y:y,z:z,l:s.l-l,w:w,h:h},
-        {x:x,y:y+w,z:z,l:l,w:s.w-w,h:h},
-        {x:x,y:y,z:z+h,l:s.l,w:s.w,h:s.h-h}
-      ];
-      free=pruneSpaces(free.concat(candidates).filter(q=>q.l>eps&&q.w>eps&&q.h>eps));
-    }
-    // Group into practical loading batches, ordered deepest/back first, then low-to-high.
-    // X=0 is container nose/back wall; door is at maximum X.
-    const sorted=placed.slice().sort((a,b)=>a.x-b.x || a.z-b.z || a.y-b.y || a.skuIndex-b.skuIndex);
-    const batches=[];
-    const depthBand=.75;
-    sorted.forEach(box=>{
-      let batch=batches.find(g=>Math.abs(g.anchor-box.x)<depthBand);
-      if(!batch){batch={anchor:box.x,boxes:[]};batches.push(batch);}
-      batch.boxes.push(box);
-    });
-    batches.sort((a,b)=>a.anchor-b.anchor);
-    steps=batches.map((g,i)=>{
-      g.boxes.sort((a,b)=>a.z-b.z || a.y-b.y);
-      const groups={};
-      g.boxes.forEach(b=>{
-        const key=[b.name,Math.round(b.pl*100),Math.round(b.pw*100),Math.round(b.ph*100)].join("|");
-        if(!groups[key]) groups[key]={name:b.name,l:b.pl,w:b.pw,h:b.ph,count:0};
-        groups[key].count++;
-      });
-      return {number:i+1,boxes:g.boxes,groups:Object.values(groups),units:g.boxes.length,
-        xStart:Math.min(...g.boxes.map(b=>b.x)),xEnd:Math.max(...g.boxes.map(b=>b.x+b.pl))};
-    });
-    packedBoxes=placed;
-    currentStep=steps.length ? 0 : -1;
-    const totalUnits=units.length, packed=placed.length, notPacked=totalUnits-packed;
-    updateStats(usedVolume,packed,totalUnits);
-    $("packMessage").textContent=notPacked
-      ? `${notPacked} unit(s) could not be placed. Try a larger container, smaller cartons, or review dimensions.`
-      : "All units fit geometrically. Check the loading sequence and physical loading constraints.";
-    $("packMessage").className="text-xs "+(notPacked?"text-amber-300":"text-emerald-300");
-    $("viewStatus").textContent=`${packed} packed · ${steps.length} loading steps`;
-    $("tallyBtn").disabled=steps.length===0;
-    $("prevBtn").disabled=steps.length===0; $("nextBtn").disabled=steps.length===0; $("fullBtn").disabled=steps.length===0;
-    rebuildScene(); showStep(currentStep); updateStepUI();
-  }
-  function updateStats(used,packed,total) {
-    const c=getContainer(), eff=used/c.capacity*100;
-    $("usedCbm").textContent=used.toFixed(2); $("efficiency").textContent=eff.toFixed(1)+"%";
-    $("progressBar").style.width=Math.min(100,eff)+"%";
-    $("packedUnits").textContent=`${packed.toLocaleString()} / ${total.toLocaleString()} units packed`;
-    $("unpackedUnits").textContent=`${Math.max(0,total-packed).toLocaleString()} not packed`;
-    $("itemCount").textContent=(sourceItems.reduce((s,x)=>s+x.qty,0)).toLocaleString()+" units";
-  }
-  $("packBtn").addEventListener("click",()=>{
-    if(!sourceItems.length)return;
-    $("packBtn").disabled=true; $("packBtn").textContent="Packing…";
-    // Yield to the browser before CPU work so the UI can paint the busy state.
-    setTimeout(()=>{try{packAll();}catch(e){console.error(e);$("packMessage").textContent="Packing error: "+e.message;}finally{$("packBtn").disabled=false;$("packBtn").textContent="Pack items in container";}},30);
-  });
+    <!-- APPLICATION LOGIC SCRIPT -->
+    <script>
+        // --- Modal Helper (Replaces alert()) ---
+        function showModal(title, message) {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
 
-  function init3D() {
-    const host=$("viewport");
-    scene=new THREE.Scene(); scene.background=new THREE.Color(0x1e293b);
-    camera=new THREE.PerspectiveCamera(45,1,.01,200);
-    renderer=new THREE.WebGLRenderer({antialias:true,alpha:false});
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-    renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-    host.appendChild(renderer.domElement);
-    controls=new THREE.OrbitControls(camera,renderer.domElement);
-    controls.enableDamping=true; controls.dampingFactor=.07; controls.screenSpacePanning=true;
-    scene.add(new THREE.HemisphereLight(0xffffff,0x64748b,2.0));
-    const key=new THREE.DirectionalLight(0xffffff,1.5); key.position.set(-8,12,8); scene.add(key);
-    const ground=new THREE.GridHelper(30,30,0x64748b,0x475569); ground.position.y=-.012; scene.add(ground);
-    containerGroup=new THREE.Group(); boxGroup=new THREE.Group(); scene.add(containerGroup); scene.add(boxGroup);
-    resizeObserver=new ResizeObserver(resize3D); resizeObserver.observe(host);
-    window.addEventListener("resize",resize3D);
-    rebuildScene();
-    $("loadingOverlay").style.display="none";
-    animate();
-  }
-  function resize3D() {
-    if(!renderer)return;
-    const host=$("viewport"), w=host.clientWidth, h=host.clientHeight;
-    if(!w||!h)return;
-    camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h,false);
-  }
-  function clearGroup(group) {
-    // Safe when WebGL has not initialized (for example, a browser with WebGL disabled).
-    if (!group || !Array.isArray(group.children)) return;
-    while (group.children.length) {
-      const obj = group.children[0];
-      group.remove(obj); // Keep Three.js parent/child references in sync.
-      if (obj && typeof obj.traverse === "function") {
-        obj.traverse(o => {
-          if (o.geometry && typeof o.geometry.dispose === "function") o.geometry.dispose();
-          if (o.material) {
-            (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => {
-              if (m && typeof m.dispose === "function") m.dispose();
+        // --- Container Dimensions Configuration (meters) ---
+        const CONTAINERS = {
+            '20ft': { name: "20' Standard", l: 5.90, w: 2.35, h: 2.39, cbm: 28 },
+            '40ft': { name: "40' Standard", l: 12.00, w: 2.35, h: 2.39, cbm: 58 },
+            '40hc': { name: "40' High Cube", l: 12.00, w: 2.35, h: 2.69, cbm: 68 }
+        };
+
+        // --- Global State ---
+        let rawItemsData = []; // [{name, l, w, h, qty, color}]
+        let packedResult = null; // Output from 3D Bin Packer
+        let currentStepIndex = 0;
+        let isPlaying = false;
+        let playInterval = null;
+
+        // --- Three.js Globals ---
+        let scene, camera, renderer, controls;
+        let containerMeshGroup = new THREE.Group();
+        let boxesMeshGroup = new THREE.Group();
+        let allBoxMeshes = [];
+
+        // --- Preset Data ---
+        const PRESET_ITEMS = [
+            { name: "Standard Carton A", l: 60, w: 40, h: 40, qty: 120, color: "#4f46e5" },
+            { name: "Medium Box B", l: 50, w: 30, h: 30, qty: 150, color: "#0ea5e9" },
+            { name: "Small Box C", l: 40, w: 20, h: 20, qty: 200, color: "#10b981" },
+            { name: "Heavy Crate D", l: 100, w: 80, h: 60, qty: 15, color: "#f59e0b" },
+            { name: "Long Pipe Pack E", l: 200, w: 30, h: 30, qty: 25, color: "#ec4899" }
+        ];
+
+        // --- Initialize App on Load ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initThreeJS();
+            loadPresetData();
+            
+            // Handle window resizing
+            window.addEventListener('resize', onWindowResize);
+
+            // Container change listener
+            document.getElementById('container-select').addEventListener('change', () => {
+                updateContainerWireframe();
+                if (packedResult) {
+                    runPackingAlgorithm(); // Re-run with new container size
+                }
             });
-          }
         });
-      }
-    }
-  }
-  function rebuildScene() {
-    if (!scene || !containerGroup || !boxGroup || !controls || !camera) return;
-    clearGroup(containerGroup); clearGroup(boxGroup);
-    const c=getContainer(), L=c.length,W=c.width,H=c.height;
-    const floor=new THREE.Mesh(new THREE.BoxGeometry(L,.025,W),new THREE.MeshStandardMaterial({color:0x64748b,transparent:true,opacity:.22,roughness:.9}));
-    floor.position.set(L/2,0,W/2); containerGroup.add(floor);
-    const shell=new THREE.Mesh(new THREE.BoxGeometry(L,H,W),new THREE.MeshBasicMaterial({color:0x38bdf8,transparent:true,opacity:.045,side:THREE.BackSide,depthWrite:false}));
-    shell.position.set(L/2,H/2,W/2); containerGroup.add(shell);
-    const edges=new THREE.EdgesGeometry(new THREE.BoxGeometry(L,H,W));
-    const wire=new THREE.LineSegments(edges,new THREE.LineBasicMaterial({color:0x7dd3fc,transparent:true,opacity:.9}));
-    wire.position.set(L/2,H/2,W/2); containerGroup.add(wire);
-    // Door frame marker at x = container length.
-    const door=new THREE.Mesh(new THREE.BoxGeometry(.025,H,W),new THREE.MeshBasicMaterial({color:0xfbbf24,wireframe:true,transparent:true,opacity:.75}));
-    door.position.set(L,H/2,W/2); containerGroup.add(door);
-    const center=new THREE.Vector3(L/2,H/2,W/2);
-    controls.target.copy(center);
-    const maxDim=Math.max(L,W,H);
-    camera.position.set(L*1.35,H*1.45,W*2.0);
-    camera.near=.01; camera.far=250; camera.updateProjectionMatrix();
-    controls.minDistance=maxDim*.45; controls.maxDistance=maxDim*5;
-    controls.update();
-    if(packedBoxes.length) drawBoxes();
-  }
-  function drawBoxes() {
-    if (!boxGroup) return;
-    const visible = currentStep===-2 ? packedBoxes : currentStep===-1 ? [] : packedBoxes.filter(b=>steps[currentStep] && steps[currentStep].boxes.includes(b));
-    visible.forEach((b,index)=>{
-      const color = validColor(b.color) || colorFor(b.skuIndex);
-      const geo=new THREE.BoxGeometry(b.pl,b.ph,b.pw);
-      const mat=new THREE.MeshStandardMaterial({color,roughness:.72,metalness:.04});
-      const mesh=new THREE.Mesh(geo,mat);
-      mesh.position.set(b.x+b.pl/2,b.z+b.ph/2,b.y+b.pw/2);
-      mesh.castShadow=true; mesh.receiveShadow=true; boxGroup.add(mesh);
-      const edge=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0x0f172a,transparent:true,opacity:.8}));
-      edge.position.copy(mesh.position); boxGroup.add(edge);
-    });
-  }
-  function validColor(c) { return /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(c||"") ? c : null; }
-  function colorFor(n) { const palette=[0x60a5fa,0xf59e0b,0x34d399,0xf472b6,0xa78bfa,0x22d3ee,0xfb7185,0xc084fc]; return palette[n%palette.length]; }
-  function showStep(step) {
-    currentStep=step;
-    clearGroup(boxGroup);
-    if(step===-2) drawBoxes();
-    else if(step>=0) drawBoxes();
-    updateStepUI();
-  }
-  function updateStepUI() {
-    const count=steps.length;
-    if(!count || currentStep===-1) {
-      $("stepCounter").textContent=count?"Sequence ready":"No sequence";
-      $("stepUnits").textContent="—";
-      $("stepInstruction").textContent=count?"Choose Next to preview the first loading step.":"Pack items to generate warehouse loading instructions.";
-      $("stepDetails").textContent="";
-    } else if(currentStep===-2) {
-      $("stepCounter").textContent="Full container";
-      $("stepUnits").textContent=packedBoxes.length+" cartons";
-      $("stepInstruction").textContent="Full planned load shown.";
-      $("stepDetails").textContent="All packed cartons are visible in the 3D container.";
-    } else {
-      const s=steps[currentStep];
-      $("stepCounter").textContent=`Step ${currentStep+1} of ${count}`;
-      $("stepUnits").textContent=s.units+" cartons";
-      $("stepInstruction").textContent=s.groups.map(g=>`Load ${g.count} carton${g.count===1?"":"s"} of ${g.name}`).join("; ");
-      $("stepDetails").innerHTML=s.groups.map(g=>`${escapeHtml(g.name)} · ${g.count} pcs · ${Math.round(g.l*100)} × ${Math.round(g.w*100)} × ${Math.round(g.h*100)} cm`).join("<br>")+
-        `<br><span class="text-slate-500">Loading zone: ${s.xStart.toFixed(2)}–${s.xEnd.toFixed(2)} m from back wall; bottom-to-top within zone.</span>`;
-    }
-    $("prevBtn").disabled=!count || currentStep===-1 || currentStep===0;
-    $("nextBtn").disabled=!count || currentStep===-2 || currentStep>=count-1;
-    $("fullBtn").disabled=!count;
-  }
-  $("prevBtn").addEventListener("click",()=>{if(currentStep===-2)showStep(steps.length-1);else if(currentStep>0)showStep(currentStep-1);});
-  $("nextBtn").addEventListener("click",()=>{if(currentStep===-1)showStep(0);else if(currentStep>=0&&currentStep<steps.length-1)showStep(currentStep+1);});
-  $("fullBtn").addEventListener("click",()=>showStep(-2));
 
-  $("tallyBtn").addEventListener("click",()=>{
-    if(!steps.length)return;
-    const rows=[["Loading Step","Sequence","Item Name","Quantity","Packed Size L (cm)","Packed Size W (cm)","Packed Size H (cm)","Position X from Back (m)","Position Y from Side (m)","Position Z from Floor (m)","Container"]];
-    const c=getContainer();
-    steps.forEach(s=>s.boxes.forEach((b,i)=>rows.push([
-      s.number,i+1,b.name,1,(b.pl*100).toFixed(1),(b.pw*100).toFixed(1),(b.ph*100).toFixed(1),
-      b.x.toFixed(3),b.y.toFixed(3),b.z.toFixed(3),c.name
-    ])));
-    downloadCsv("container_loading_tally_sheet.csv",rows);
-  });
+        // --- Three.js Setup ---
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x020617);
 
-  function animate() {
-    requestAnimationFrame(animate);
-    if(controls)controls.update();
-    if(renderer&&scene&&camera)renderer.render(scene,camera);
-  }
-  try {
-    init3D();
-  } catch (err) {
-    console.error("3D initialization failed:", err);
-    $("loadingOverlay").textContent = "3D view unavailable in this browser. Packing calculations can still run; enable WebGL or try Chrome.";
-    $("loadingOverlay").style.display = "flex";
-  }
-  updateContainerLabels();
-})();
-</script>
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(15, 12, 18);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.target.set(6, 1, 0);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(20, 30, 20);
+            dirLight.castShadow = true;
+            scene.add(dirLight);
+
+            const dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.4);
+            dirLight2.position.set(-20, -10, -20);
+            scene.add(dirLight2);
+
+            // Grid helper on floor
+            const gridHelper = new THREE.GridHelper(30, 30, 0x334155, 0x1e293b);
+            gridHelper.position.y = -0.01;
+            scene.add(gridHelper);
+
+            scene.add(containerMeshGroup);
+            scene.add(boxesMeshGroup);
+
+            updateContainerWireframe();
+            animateThree();
+        }
+
+        function animateThree() {
+            requestAnimationFrame(animateThree);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        // --- Render Container Wireframe & Floor ---
+        function updateContainerWireframe() {
+            containerMeshGroup.clear();
+            const typeKey = document.getElementById('container-select').value;
+            const spec = CONTAINERS[typeKey];
+
+            // Container dimensions in meters
+            const L = spec.l;
+            const W = spec.w;
+            const H = spec.h;
+
+            // Wireframe box
+            const boxGeo = new THREE.BoxGeometry(L, H, W);
+            const edges = new THREE.EdgesGeometry(boxGeo);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x6366f1, transparent: true, opacity: 0.6 });
+            const wireframeBox = new THREE.LineSegments(edges, lineMat);
+            wireframeBox.position.set(L / 2, H / 2, W / 2);
+            containerMeshGroup.add(wireframeBox);
+
+            // Semi-transparent floor
+            const floorGeo = new THREE.PlaneGeometry(L, W);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9, transparent: true, opacity: 0.4, side: THREE.DoubleSide });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.set(L / 2, 0, W / 2);
+            containerMeshGroup.add(floor);
+
+            // Adjust controls target
+            controls.target.set(L / 2, H / 2, 0);
+        }
+
+        // --- Data Management & Template ---
+        function loadPresetData() {
+            rawItemsData = JSON.parse(JSON.stringify(PRESET_ITEMS));
+            renderCargoTable();
+        }
+
+        function downloadTemplate() {
+            const csvContent = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\n" +
+                               "Standard Box A,60,40,40,50,#4f46e5\n" +
+                               "Medium Box B,50,30,30,80,#0ea5e9\n" +
+                               "Small Box C,30,20,20,100,#10b981";
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "cargo_template.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function(results) {
+                    if (results.data && results.data.length > 0) {
+                        const parsed = [];
+                        results.data.forEach(row => {
+                            const name = row['Item Name'] || row['name'] || 'Unnamed Item';
+                            const l = parseFloat(row['Length (cm)'] || row['length'] || 50);
+                            const w = parseFloat(row['Width (cm)'] || row['width'] || 40);
+                            const h = parseFloat(row['Height (cm)'] || row['height'] || 30);
+                            const qty = parseInt(row['Quantity'] || row['qty'] || 10);
+                            const color = row['Color'] || row['color'] || '#' + Math.floor(Math.random()*16777215).toString(16);
+
+                            if (!isNaN(l) && !isNaN(w) && !isNaN(h) && !isNaN(qty)) {
+                                parsed.push({ name, l, w, h, qty, color });
+                            }
+                        });
+                        if (parsed.length > 0) {
+                            rawItemsData = parsed;
+                            renderCargoTable();
+                            showModal("Success", `Successfully loaded ${parsed.length} item types from CSV.`);
+                        } else {
+                            showModal("Error", "No valid items found in CSV. Please match the template headers.");
+                        }
+                    }
+                },
+                error: function(err) {
+                    showModal("CSV Error", err.message);
+                }
+            });
+        }
+
+        function renderCargoTable() {
+            const tbody = document.getElementById('cargo-table-body');
+            tbody.innerHTML = '';
+            let totalQty = 0;
+
+            if (rawItemsData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-slate-500 italic">No items loaded.</td></tr>`;
+                document.getElementById('total-items-badge').innerText = `0 items`;
+                return;
+            }
+
+            rawItemsData.forEach(item => {
+                totalQty += item.qty;
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="p-2 font-medium text-white flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${item.color}"></span>
+                        <span class="truncate max-w-[120px]" title="${item.name}">${item.name}</span>
+                    </td>
+                    <td class="p-2 text-slate-400 font-mono">${item.l}x${item.w}x${item.h}</td>
+                    <td class="p-2 text-indigo-400 font-bold">${item.qty}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('total-items-badge').innerText = `${totalQty} total units`;
+        }
+
+
+        // --- Advanced 3D Bin Packing Algorithm (Shelf & Best-Fit Heuristic with Rotations) ---
+        function runPackingAlgorithm() {
+            if (!rawItemsData || rawItemsData.length === 0) {
+                showModal("Warning", "Please load cargo items first.");
+                return;
+            }
+
+            const typeKey = document.getElementById('container-select').value;
+            const containerSpec = CONTAINERS[typeKey];
+
+            // Convert container dimensions to cm for precision packing calculation
+            const cL = containerSpec.l * 100;
+            const cW = containerSpec.w * 100;
+            const cH = containerSpec.h * 100;
+
+            // Expand individual box units from quantities
+            let itemsPool = [];
+            let idCounter = 1;
+            rawItemsData.forEach((item, itemIdx) => {
+                for (let q = 0; q < item.qty; q++) {
+                    itemsPool.push({
+                        id: idCounter++,
+                        name: item.name,
+                        l: item.l,
+                        w: item.w,
+                        h: item.h,
+                        color: item.color,
+                        volume: item.l * item.w * item.h
+                    });
+                }
+            });
+
+            // Sort items by volume descending (heuristic)
+            itemsPool.sort((a, b) => b.volume - a.volume);
+
+            let packedBoxes = [];
+            let unpackedBoxes = [];
+
+            // Shelf / Layer-based 3D bin packing implementation
+            let currentX = 0;
+            let currentY = 0;
+            let currentZ = 0;
+            let rowMaxW = 0;
+            let layerMaxH = 0;
+
+            itemsPool.forEach(box => {
+                // Generate all 6 possible 3D orientations
+                const orientations = [
+                    { l: box.l, w: box.w, h: box.h },
+                    { l: box.l, w: box.h, h: box.w },
+                    { l: box.w, w: box.l, h: box.h },
+                    { l: box.w, w: box.h, h: box.l },
+                    { l: box.h, w: box.l, h: box.w },
+                    { l: box.h, w: box.w, h: box.l }
+                ];
+
+                // Find first valid orientation that fits in current shelf/space
+                let fitted = false;
+                for (let ori of orientations) {
+                    if (currentX + ori.l <= cL && currentZ + ori.w <= cW && currentY + ori.h <= cH) {
+                        packedBoxes.push({
+                            id: box.id,
+                            name: box.name,
+                            color: box.color,
+                            x: currentX,
+                            y: currentY,
+                            z: currentZ,
+                            l: ori.l,
+                            w: ori.w,
+                            h: ori.h,
+                            volume: box.volume
+                        });
+
+                        currentX += ori.l;
+                        rowMaxW = Math.max(rowMaxW, ori.w);
+                        layerMaxH = Math.max(layerMaxH, ori.h);
+                        fitted = true;
+                        break;
+                    }
+                }
+
+                if (!fitted) {
+                    // Try moving to next row in same layer
+                    currentX = 0;
+                    currentZ += rowMaxW;
+                    rowMaxW = 0;
+
+                    let fittedNextRow = false;
+                    for (let ori of orientations) {
+                        if (currentX + ori.l <= cL && currentZ + ori.w <= cW && currentY + ori.h <= cH) {
+                            packedBoxes.push({
+                                id: box.id,
+                                name: box.name,
+                                color: box.color,
+                                x: currentX,
+                                y: currentY,
+                                z: currentZ,
+                                l: ori.l,
+                                w: ori.w,
+                                h: ori.h,
+                                volume: box.volume
+                            });
+
+                            currentX += ori.l;
+                            rowMaxW = Math.max(rowMaxW, ori.w);
+                            layerMaxH = Math.max(layerMaxH, ori.h);
+                            fittedNextRow = true;
+                            break;
+                        }
+                    }
+
+                    if (!fittedNextRow) {
+                        // Try moving to next vertical layer
+                        currentX = 0;
+                        currentZ = 0;
+                        currentY += layerMaxH;
+                        rowMaxW = 0;
+                        layerMaxH = 0;
+
+                        let fittedNextLayer = false;
+                        for (let ori of orientations) {
+                            if (currentX + ori.l <= cL && currentZ + ori.w <= cW && currentY + ori.h <= cH) {
+                                packedBoxes.push({
+                                    id: box.id,
+                                    name: box.name,
+                                    color: box.color,
+                                    x: currentX,
+                                    y: currentY,
+                                    z: currentZ,
+                                    l: ori.l,
+                                    w: ori.w,
+                                    h: ori.h,
+                                    volume: box.volume
+                                });
+
+                                currentX += ori.l;
+                                rowMaxW = Math.max(rowMaxW, ori.w);
+                                layerMaxH = Math.max(layerMaxH, ori.h);
+                                fittedNextLayer = true;
+                                break;
+                            }
+                        }
+
+                        if (!fittedNextLayer) {
+                            unpackedBoxes.push(box);
+                        }
+                    }
+                }
+            });
+
+            // Group packed boxes into sequential loading steps (back-to-front along Z/X, bottom-to-top along Y)
+            packedBoxes.sort((a, b) => {
+                if (a.y !== b.y) return a.y - b.y; // Bottom to top
+                if (a.z !== b.z) return a.z - b.z; // Back to front
+                return a.x - b.x;
+            });
+
+            // Create loading steps (group by Y layer and Z depth batches)
+            let steps = [];
+            let currentStepItems = [];
+            let lastY = packedBoxes.length > 0 ? packedBoxes[0].y : 0;
+            let lastZ = packedBoxes.length > 0 ? packedBoxes[0].z : 0;
+
+            packedBoxes.forEach((box, index) => {
+                if (Math.abs(box.y - lastY) > 50 || Math.abs(box.z - lastZ) > 150 || currentStepItems.length >= 15) {
+                    if (currentStepItems.length > 0) {
+                        steps.push([...currentStepItems]);
+                        currentStepItems = [];
+                    }
+                    lastY = box.y;
+                    lastZ = box.z;
+                }
+                currentStepItems.push(box);
+            });
+            if (currentStepItems.length > 0) {
+                steps.push(currentStepItems);
+            }
+
+            packedResult = {
+                containerSpec,
+                packedBoxes,
+                unpackedBoxes,
+                steps,
+                totalVolume: cL * cW * cH / 1000000, // CBM
+                packedVolume: packedBoxes.reduce((sum, b) => sum + b.volume, 0) / 1000000
+            };
+
+            updateStatsAndUI();
+            initVisualMeshes();
+        }
+
+        // --- Update UI & Stats Panel ---
+        function updateStatsAndUI() {
+            if (!packedResult) return;
+
+            const cVol = packedResult.totalVolume;
+            const pVol = packedResult.packedVolume;
+            const efficiency = Math.min(100, Math.round((pVol / cVol) * 100));
+
+            document.getElementById('stat-container-vol').innerText = `${cVol.toFixed(2)} CBM`;
+            document.getElementById('stat-packed-vol').innerText = `${pVol.toFixed(2)} CBM`;
+            document.getElementById('stat-efficiency').innerText = `${efficiency}%`;
+            document.getElementById('efficiency-bar').style.width = `${efficiency}%`;
+
+            const packedCount = packedResult.packedBoxes.length;
+            const unpackedCount = packedResult.unpackedBoxes.length;
+            document.getElementById('packing-summary-text').innerText = 
+                `Successfully packed ${packedCount} items. ${unpackedCount > 0 ? unpackedCount + ' items did not fit.' : 'All items fit perfectly!'}`;
+
+            currentStepIndex = 0;
+            updateStepView();
+        }
+
+        // --- Three.js 3D Box Generation ---
+        function initVisualMeshes() {
+            boxesMeshGroup.clear();
+            allBoxMeshes = [];
+
+            if (!packedResult || packedResult.packedBoxes.length === 0) return;
+
+            packedResult.packedBoxes.forEach((box, index) => {
+                // Dimensions in meters
+                const bL = box.l / 100;
+                const bW = box.w / 100;
+                const bH = box.h / 100;
+
+                const geom = new THREE.BoxGeometry(bL, bH, bW);
+                const mat = new THREE.MeshStandardMaterial({
+                    color: box.color || 0x4f46e5,
+                    roughness: 0.4,
+                    metalness: 0.1
+                });
+
+                const mesh = new THREE.Mesh(geom, mat);
+                mesh.castShadow = true;
+                mesh.receiveShadow = true;
+
+                // Center position in Three.js coordinates (X right, Y up, Z depth)
+                // Container starts at origin (0,0,0) to (L, H, W)
+                mesh.position.set(
+                    (box.x / 100) + (bL / 2),
+                    (box.y / 100) + (bH / 2),
+                    (box.z / 100) + (bW / 2)
+                );
+
+                // Add edge lines for premium CAD look
+                const edges = new THREE.EdgesGeometry(geom);
+                const lineMat = new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.3 });
+                const wireframe = new THREE.LineSegments(edges, lineMat);
+                mesh.add(wireframe);
+
+                mesh.userData = { stepIndex: getStepIndexOfBox(box), boxName: box.name };
+                boxesMeshGroup.add(mesh);
+                allBoxMeshes.push(mesh);
+            });
+
+            showFullContainer();
+        }
+
+        function getStepIndexOfBox(targetBox) {
+            for (let s = 0; s < packedResult.steps.length; s++) {
+                if (packedResult.steps[s].some(b => b.id === targetBox.id && b.x === targetBox.x && b.y === targetBox.y)) {
+                    return s;
+                }
+            }
+            return 0;
+        }
+
+        // --- Step-by-Step Playback Functions ---
+        function updateStepView() {
+            if (!packedResult || packedResult.steps.length === 0) return;
+
+            const totalSteps = packedResult.steps.length;
+            if (currentStepIndex >= totalSteps) currentStepIndex = totalSteps - 1;
+            if (currentStepIndex < 0) currentStepIndex = 0;
+
+            // Update instruction text
+            document.getElementById('step-instruction-title').innerText = `Loading Step ${currentStepIndex + 1} of ${totalSteps}`;
+            
+            const currentBatch = packedResult.steps[currentStepIndex];
+            const summaryNames = {};
+            currentBatch.forEach(b => {
+                summaryNames[b.name] = (summaryNames[b.name] || 0) + 1;
+            });
+
+            let descList = Object.entries(summaryNames).map(([name, count]) => `${count}x ${name}`).join(', ');
+            document.getElementById('step-instruction-desc').innerText = `Place: ${descList}`;
+            document.getElementById('canvas-status-label').innerText = `Step ${currentStepIndex + 1} / ${totalSteps}`;
+
+            // Show/hide meshes based on current step
+            allBoxMeshes.forEach(mesh => {
+                const sIdx = mesh.userData.stepIndex;
+                if (sIdx <= currentStepIndex) {
+                    mesh.visible = true;
+                } else {
+                    mesh.visible = false;
+                }
+            });
+        }
+
+        function stepNext() {
+            if (!packedResult || packedResult.steps.length === 0) return;
+            if (currentStepIndex < packedResult.steps.length - 1) {
+                currentStepIndex++;
+                updateStepView();
+            } else {
+                stopPlayback();
+            }
+        }
+
+        function stepPrev() {
+            if (!packedResult || packedResult.steps.length === 0) return;
+            if (currentStepIndex > 0) {
+                currentStepIndex--;
+                updateStepView();
+            }
+        }
+
+        function stepFirst() {
+            currentStepIndex = 0;
+            updateStepView();
+        }
+
+        function showFullContainer() {
+            stopPlayback();
+            if (!packedResult || packedResult.steps.length === 0) return;
+            currentStepIndex = packedResult.steps.length - 1;
+            updateStepView();
+            document.getElementById('canvas-status-label').innerText = `Full Container View (${packedResult.packedBoxes.length} items)`;
+        }
+
+        function togglePlayPause() {
+            if (!packedResult || packedResult.steps.length === 0) {
+                showModal("Notice", "Please run packing algorithm first.");
+                return;
+            }
+
+            if (isPlaying) {
+                stopPlayback();
+            } else {
+                startPlayback();
+            }
+        }
+
+        function startPlayback() {
+            if (currentStepIndex >= packedResult.steps.length - 1) {
+                currentStepIndex = 0; // Restart if at end
+            }
+            isPlaying = true;
+            document.getElementById('play-icon').className = "fa-solid fa-pause";
+            document.getElementById('play-text').innerText = "Pause Sequence";
+
+            playInterval = setInterval(() => {
+                if (currentStepIndex < packedResult.steps.length - 1) {
+                    currentStepIndex++;
+                    updateStepView();
+                } else {
+                    stopPlayback();
+                }
+            }, 1500); // 1.5s per step
+        }
+
+        function stopPlayback() {
+            isPlaying = false;
+            if (playInterval) clearInterval(playInterval);
+            document.getElementById('play-icon').className = "fa-solid fa-play";
+            document.getElementById('play-text').innerText = "Play Sequence";
+        }
+
+        // --- Download Warehouse Tally Sheet CSV ---
+        function downloadTallySheet() {
+            if (!packedResult || packedResult.steps.length === 0) {
+                showModal("Notice", "No packed cargo data available to export.");
+                return;
+            }
+
+            let csv = "Loading Step,Item Name,Length (cm),Width (cm),Height (cm),X (cm),Y (cm),Z (cm)\n";
+            packedResult.steps.forEach((step, sIdx) => {
+                step.forEach(box => {
+                    csv += `Step ${sIdx + 1},"${box.name}",${box.l},${box.w},${box.h},${box.x},${box.y},${box.z}\n`;
+                });
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "warehouse_loading_tally_sheet.csv";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+    </script>
 </body>
 </html>
