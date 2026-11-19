@@ -3,228 +3,381 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Container Stuffing Planner</title>
+    <title>CargoPack 3D Pro — 3D Container Stuffing Planner</title>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <!-- OrbitControls CDN -->
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-    <!-- PapaParse CDN for CSV parsing -->
+    <!-- PapaParse CDN for asynchronous CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <!-- FontAwesome for icons -->
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         body { font-family: 'Inter', sans-serif; }
-        /* Custom scrollbar for sidebar */
+        /* Custom dark scrollbars */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #0f172a; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
         ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        /* Custom range slider styling */
+        input[type="range"].timeline-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            background: #1e293b;
+            height: 6px;
+            border-radius: 999px;
+            outline: none;
+        }
+        input[type="range"].timeline-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #6366f1;
+            border: 2px solid #e0e7ff;
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(99, 102, 241, 0.7);
+            transition: transform 0.12s ease;
+        }
+        input[type="range"].timeline-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #818cf8;
+        }
+        input[type="range"].timeline-slider::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #6366f1;
+            border: 2px solid #e0e7ff;
+            cursor: pointer;
+        }
     </style>
 </head>
-<body class="h-full bg-slate-900 text-slate-100 overflow-hidden flex flex-col lg:flex-row">
+<body class="h-full bg-slate-950 text-slate-100 overflow-hidden flex flex-col lg:flex-row">
 
-    <!-- Notification / Message Box Modal -->
-    <div id="modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-slate-800 border border-slate-700 rounded-xl p-6 max-w-md w-full shadow-2xl">
-            <h3 id="modal-title" class="text-lg font-bold text-white mb-2">Notice</h3>
-            <p id="modal-message" class="text-slate-300 text-sm mb-6"></p>
+    <!-- Custom Modal Notification (No native alert/confirm) -->
+    <div id="modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div class="flex items-center space-x-3 mb-3">
+                <div class="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
+                    <i class="fa-solid fa-circle-info"></i>
+                </div>
+                <h3 id="modal-title" class="text-base font-bold text-white">Notice</h3>
+            </div>
+            <p id="modal-message" class="text-slate-300 text-sm leading-relaxed mb-6"></p>
             <div class="flex justify-end">
-                <button onclick="closeModal()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-lg transition">OK</button>
+                <button onclick="closeModal()" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold rounded-xl transition">OK</button>
             </div>
         </div>
     </div>
 
-    <!-- SIDEBAR CONTROLS -->
-    <aside class="w-full lg:w-96 bg-slate-900 border-r border-slate-800 flex flex-col h-full z-10 shadow-xl overflow-hidden">
-        <!-- Header -->
-        <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
-            <div class="flex items-center space-x-2">
-                <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white shadow-md">
-                    <i class="fa-solid fa-cube"></i>
+    <!-- LEFT SIDEBAR: Controls, CSV Upload, Cargo Table, Stats -->
+    <aside class="w-full lg:w-[370px] xl:w-[390px] bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-800 flex flex-col max-h-[45vh] lg:max-h-full lg:h-full z-20 shadow-2xl shrink-0">
+        <!-- Brand Header -->
+        <div class="px-4 py-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60 shrink-0">
+            <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/30">
+                    <i class="fa-solid fa-cubes"></i>
                 </div>
-                <h1 class="font-bold text-base tracking-tight text-white">CargoPack 3D Pro</h1>
+                <div>
+                    <h1 class="font-bold text-sm sm:text-base tracking-tight text-white leading-tight">CargoPack 3D Pro</h1>
+                    <p class="text-[10px] text-slate-400">Container Stuffing & Tally Planner</p>
+                </div>
             </div>
-            <span class="text-xs px-2 py-1 bg-indigo-950 text-indigo-400 border border-indigo-800/50 rounded-md font-mono">v2.0 AI</span>
+            <span class="text-[11px] px-2.5 py-1 bg-indigo-950/90 text-indigo-300 border border-indigo-800/60 rounded-lg font-mono font-semibold">v3.0</span>
         </div>
 
-        <!-- Scrollable Controls -->
-        <div class="flex-1 overflow-y-auto p-4 space-y-5">
-            
-            <!-- Container Settings -->
-            <div class="space-y-2">
-                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+        <!-- Scrollable Sidebar Body -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+            <!-- 1. Container Type Selector -->
+            <div class="space-y-1.5">
+                <label for="container-select" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                     <span>1. Container Type</span>
+                    <span id="container-dims-hint" class="font-mono text-[10px] text-indigo-400">12.03 × 2.35 × 2.69 m</span>
                 </label>
-                <select id="container-select" class="w-full bg-slate-800 border border-slate-700 rounded-lg p-2.5 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
-                    <option value="20ft">20' Standard (5.90m x 2.35m x 2.39m - 33.1 CBM)</option>
-                    <option value="40ft">40' Standard (12.03m x 2.35m x 2.39m - 67.6 CBM)</option>
-                    <option value="40hc" selected>40' High Cube (12.03m x 2.35m x 2.69m - 76.0 CBM)</option>
+                <select id="container-select" class="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-xs sm:text-sm text-white focus:outline-none focus:border-indigo-500 transition cursor-pointer">
+                    <option value="20ft">20' Standard — 33.14 CBM (5.90 × 2.35 × 2.39m)</option>
+                    <option value="40ft">40' Standard — 67.57 CBM (12.03 × 2.35 × 2.39m)</option>
+                    <option value="40hc" selected>40' High Cube — 76.05 CBM (12.03 × 2.35 × 2.69m)</option>
                 </select>
             </div>
 
-            <!-- CSV Upload & Templates -->
+            <!-- 2. CSV Upload & Template Download -->
             <div class="space-y-2">
-                <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">2. Cargo Data Source</label>
-                <div class="grid grid-cols-1 gap-2">
-                    <button onclick="downloadTemplate()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center justify-center space-x-1.5 transition">
-                        <i class="fa-solid fa-file-arrow-down text-emerald-400"></i>
-                        <span>Get Template</span>
+                <div class="flex items-center justify-between">
+                    <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">2. Cargo Manifest (.CSV)</label>
+                    <button onclick="downloadTemplate()" class="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 flex items-center space-x-1 transition">
+                        <i class="fa-solid fa-file-arrow-down"></i>
+                        <span>Download CSV Template</span>
                     </button>
                 </div>
-                <div class="relative border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-lg p-3 text-center transition bg-slate-800/40">
-                    <input type="file" id="csv-file-input" accept=".csv" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" onchange="handleFileUpload(event)">
+
+                <div id="csv-dropzone" class="relative border-2 border-dashed border-slate-700 hover:border-indigo-500 rounded-xl p-3.5 text-center transition bg-slate-800/40 group">
+                    <input type="file" id="csv-file-input" accept=".csv" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10" onchange="handleFileUpload(event)">
                     <div class="flex flex-col items-center pointer-events-none space-y-1">
-                        <i class="fa-solid fa-cloud-arrow-up text-indigo-400 text-lg"></i>
-                        <span class="text-xs text-slate-300 font-medium">Upload custom CSV file</span>
-                        <span class="text-[10px] text-slate-500">Item Name, Length (cm), Width (cm), Height (cm), Quantity</span>
+                        <div class="w-9 h-9 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:scale-105 transition">
+                            <i class="fa-solid fa-cloud-arrow-up text-base"></i>
+                        </div>
+                        <span id="uploaded-filename" class="text-xs text-slate-200 font-medium">Drop CSV file here or click to upload</span>
+                        <span class="text-[10px] text-slate-400">Item Name, Length (cm), Width (cm), Height (cm), Quantity, Color (opt)</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Cargo Summary & Table Preview -->
-            <div class="space-y-2">
+            <!-- 3. Uploaded Cargo Items List -->
+            <div class="space-y-1.5">
                 <div class="flex items-center justify-between">
-                    <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">3. Cargo Items List</label>
+                    <label class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">3. Cargo Items</label>
                     <div class="flex items-center space-x-1.5">
-                        <span id="total-cbm-badge" class="text-[11px] bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-800/60 font-mono">0.00 CBM</span>
-                        <span id="total-items-badge" class="text-[11px] bg-slate-800 text-indigo-300 px-2 py-0.5 rounded-full border border-slate-700 font-mono">0 units</span>
+                        <span id="total-cbm-badge" class="text-[10px] bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-800/60 font-mono">0.00 CBM</span>
+                        <span id="total-items-badge" class="text-[10px] bg-slate-800 text-indigo-300 px-2 py-0.5 rounded-full border border-slate-700 font-mono">0 units</span>
                     </div>
                 </div>
-                <div class="max-h-40 overflow-y-auto border border-slate-800 rounded-lg bg-slate-950/40">
+                <div class="max-h-36 overflow-y-auto border border-slate-800 rounded-xl bg-slate-950/50">
                     <table class="w-full text-left text-xs text-slate-300">
-                        <thead class="bg-slate-900 sticky top-0 text-slate-400 border-b border-slate-800">
+                        <thead class="bg-slate-900/95 sticky top-0 text-[11px] text-slate-400 border-b border-slate-800">
                             <tr>
-                                <th class="p-2">Item</th>
-                                <th class="p-2">Dims (cm)</th>
-                                <th class="p-2 text-right">Qty</th>
+                                <th class="py-2 px-2.5">SKU / Item</th>
+                                <th class="py-2 px-2">L×W×H (cm)</th>
+                                <th class="py-2 px-2.5 text-right">Qty</th>
                             </tr>
                         </thead>
                         <tbody id="cargo-table-body" class="divide-y divide-slate-800/60">
                             <tr>
-                                <td colspan="3" class="p-3 text-center text-slate-500 italic">No items loaded yet.</td>
+                                <td colspan="3" class="p-4 text-center text-slate-500 italic text-xs">Upload a CSV file to load cargo items.</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            <!-- Run Calculation Button -->
-            <button onclick="runPackingAlgorithm()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/30 flex items-center justify-center space-x-2 transition transform active:scale-95">
-                <i class="fa-solid fa-wand-magic-sparkles"></i>
-                <span>Run AI Multi-Pass Packing</span>
-            </button>
-
-            <!-- Packing Stats Panel -->
-            <div class="bg-slate-800/60 border border-slate-700/80 rounded-xl p-3.5 space-y-3">
-                <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
-                    <span>Packing Statistics</span>
-                    <i class="fa-solid fa-chart-pie text-indigo-400"></i>
-                </h4>
-                <div class="grid grid-cols-2 gap-2 text-xs">
-                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                        <span class="text-slate-400 block text-[10px]">Container Vol</span>
-                        <span id="stat-container-vol" class="font-bold text-white text-sm">0.00 CBM</span>
+            <!-- 4. Run AI Multi-Pass Packing Button -->
+            <div class="space-y-2">
+                <button id="run-pack-btn" onclick="runPackingAlgorithmAsync()" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl shadow-lg shadow-indigo-600/25 flex items-center justify-center space-x-2 transition active:scale-[0.99]">
+                    <i id="run-pack-icon" class="fa-solid fa-wand-magic-sparkles"></i>
+                    <span id="run-pack-text">Run AI Multi-Pass Packing</span>
+                </button>
+                <!-- Async Progress Feedback -->
+                <div id="packing-progress-wrap" class="hidden space-y-1">
+                    <div class="flex justify-between text-[10px] text-indigo-300 font-mono">
+                        <span id="packing-progress-label">Optimizing pass 1...</span>
+                        <span id="packing-progress-pct">0%</span>
                     </div>
-                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                        <span class="text-slate-400 block text-[10px]">Packed Vol</span>
-                        <span id="stat-packed-vol" class="font-bold text-emerald-400 text-sm">0.00 CBM</span>
+                    <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                        <div id="packing-progress-bar" class="bg-indigo-400 h-full transition-all duration-150 rounded-full" style="width: 0%"></div>
                     </div>
-                </div>
-                <div class="grid grid-cols-2 gap-2 text-xs">
-                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                        <span class="text-slate-400 block text-[10px]">Packed Units</span>
-                        <span id="stat-packed-units" class="font-bold text-indigo-300 text-sm">0 / 0</span>
-                    </div>
-                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
-                        <span class="text-slate-400 block text-[10px]">Space Utilization</span>
-                        <span id="stat-efficiency" class="font-bold text-white text-sm">0%</span>
-                    </div>
-                </div>
-                <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800">
-                    <div id="efficiency-bar" class="bg-indigo-500 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
-                </div>
-                <div id="packing-summary-text" class="text-[11px] text-slate-400 italic">
-                    Run the algorithm to test randomized multi-pass heuristics and fit maximum cartons.
                 </div>
             </div>
 
-            <!-- Tally Sheet Export -->
-            <button onclick="downloadTallySheet()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-200 rounded-lg flex items-center justify-center space-x-2 transition">
-                <i class="fa-solid fa-file-excel text-emerald-400"></i>
-                <span>Download Warehouse Tally Sheet (.csv)</span>
-            </button>
+            <!-- 5. Real-Time Packing Statistics Panel -->
+            <div class="bg-slate-800/60 border border-slate-700/70 rounded-xl p-3.5 space-y-3">
+                <div class="flex items-center justify-between">
+                    <h4 class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Packing Statistics</h4>
+                    <i class="fa-solid fa-chart-pie text-indigo-400 text-xs"></i>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">Container Vol</span>
+                        <span id="stat-container-vol" class="font-bold text-white text-sm font-mono">76.05 CBM</span>
+                    </div>
+                    <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">Packed Vol</span>
+                        <span id="stat-packed-vol" class="font-bold text-emerald-400 text-sm font-mono">0.00 CBM</span>
+                    </div>
+                    <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">Packed Units</span>
+                        <span id="stat-packed-units" class="font-bold text-indigo-300 text-sm font-mono">0 / 0</span>
+                    </div>
+                    <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">Efficiency</span>
+                        <span id="stat-efficiency" class="font-bold text-white text-sm font-mono">0.0%</span>
+                    </div>
+                </div>
+                <div class="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden border border-slate-800">
+                    <div id="efficiency-bar" class="bg-gradient-to-r from-indigo-500 to-emerald-400 h-full transition-all duration-500 rounded-full" style="width: 0%"></div>
+                </div>
+                <div id="packing-summary-text" class="text-[11px] text-slate-400 leading-snug">
+                    Upload a CSV manifest and run packing to compute optimal 3D container layout.
+                </div>
+            </div>
 
+            <!-- 6. Synced Tally Sheet Export -->
+            <button onclick="downloadTallySheet()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 rounded-xl flex items-center justify-center space-x-2 transition">
+                <i class="fa-solid fa-file-excel text-emerald-400 text-sm"></i>
+                <span>Download Excel Tally Sheet (.CSV)</span>
+            </button>
         </div>
     </aside>
 
-    <!-- MAIN 3D VIEWPORT & PLAYBACK -->
-    <main class="flex-1 flex flex-col h-full relative overflow-hidden bg-slate-950">
-        
-        <!-- Canvas Viewport -->
-        <div id="canvas-container" class="flex-1 w-full h-full relative cursor-grab active:cursor-grabbing">
-            <!-- Instructional Overlay -->
-            <div class="absolute top-4 left-4 z-10 pointer-events-none bg-slate-900/80 backdrop-blur border border-slate-700/60 rounded-lg px-3 py-2 text-[11px] text-slate-300 shadow-lg flex items-center space-x-3">
-                <div><i class="fa-solid fa-rotate text-indigo-400 mr-1"></i> Left Click/Touch: Rotate</div>
-                <div class="text-slate-600">|</div>
-                <div><i class="fa-solid fa-hand text-indigo-400 mr-1"></i> Right Click: Pan</div>
-                <div class="text-slate-600">|</div>
-                <div><i class="fa-solid fa-magnifying-glass-plus text-indigo-400 mr-1"></i> Scroll: Zoom</div>
+    <!-- RIGHT MAIN AREA: 3D Viewport + Custom Loading Sequence Playback Bar -->
+    <main class="flex-1 flex flex-col h-full min-h-0 relative overflow-hidden bg-slate-900">
+
+        <!-- 3D Three.js Canvas Container -->
+        <div id="canvas-container" class="flex-1 w-full min-h-0 relative cursor-grab active:cursor-grabbing bg-[#0f172a]">
+
+            <!-- High-Contrast Instructional Overlay -->
+            <div class="absolute top-3 left-3 z-10 pointer-events-none bg-slate-950/85 backdrop-blur-md border border-slate-700/80 rounded-xl px-3.5 py-2 text-[11px] text-slate-200 shadow-xl flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span><i class="fa-solid fa-rotate text-indigo-400 mr-1"></i>Touch/Left Click: Rotate</span>
+                <span class="text-slate-600 hidden sm:inline">|</span>
+                <span><i class="fa-solid fa-hand text-indigo-400 mr-1"></i>Right Click: Pan</span>
+                <span class="text-slate-600 hidden sm:inline">|</span>
+                <span><i class="fa-solid fa-magnifying-glass-plus text-indigo-400 mr-1"></i>Scroll/Pinch: Zoom</span>
             </div>
 
-            <!-- 3D Legend / Quick Toggle -->
-            <div class="absolute top-4 right-4 z-10 bg-slate-900/80 backdrop-blur border border-slate-700/60 rounded-lg px-3 py-2 text-xs text-slate-300 shadow-lg flex items-center space-x-2">
-                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
-                <span id="canvas-status-label" class="font-medium">Ready</span>
+            <!-- Top-Right Status Badge -->
+            <div class="absolute top-3 right-3 z-10 bg-slate-950/85 backdrop-blur-md border border-slate-700/80 rounded-xl px-3 py-2 text-xs text-slate-200 shadow-xl flex items-center space-x-2">
+                <span id="status-dot" class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+                <span id="canvas-status-label" class="font-medium">Ready — Upload CSV</span>
             </div>
 
-            <!-- Hover Box Info Tooltip -->
-            <div id="box-tooltip" class="hidden absolute z-30 pointer-events-none bg-slate-900/95 border border-slate-700 text-white text-xs rounded-lg px-3 py-2 shadow-xl">
-                <div id="tooltip-title" class="font-bold text-indigo-400"></div>
-                <div id="tooltip-dims" class="text-slate-300 font-mono text-[11px]"></div>
-                <div id="tooltip-pos" class="text-slate-400 text-[10px]"></div>
+            <!-- Interactive Hover Tooltip (Raycaster) -->
+            <div id="box-tooltip" class="hidden absolute z-30 pointer-events-none bg-slate-950/95 border border-indigo-500/60 text-white text-xs rounded-xl px-3.5 py-2.5 shadow-2xl max-w-xs">
+                <div class="flex items-center space-x-2 mb-1">
+                    <span id="tooltip-color" class="w-2.5 h-2.5 rounded-full shrink-0"></span>
+                    <span id="tooltip-title" class="font-bold text-indigo-300"></span>
+                </div>
+                <div id="tooltip-dims" class="text-slate-200 font-mono text-[11px]"></div>
+                <div id="tooltip-pos" class="text-slate-400 font-mono text-[10px] mt-0.5"></div>
+                <div id="tooltip-step" class="text-amber-300 text-[10px] font-medium mt-1"></div>
             </div>
         </div>
 
-        <!-- Step-by-Step Playback Controls Bar -->
-        <div class="bg-slate-900 border-t border-slate-800 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 z-20">
-            <div class="flex items-center space-x-3">
-                <div class="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-indigo-400 font-bold text-sm">
-                    <i class="fa-solid fa-list-ol"></i>
+        <!-- BOTTOM PLAYBACK BAR: Custom Carton-by-Carton / Batch-Size Controls -->
+        <section class="bg-slate-950 border-t border-slate-800 px-4 py-3 z-20 shrink-0 space-y-2.5">
+
+            <!-- Row 1: Step Instruction Banner + Step Mode / Batch Size Controls -->
+            <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-2.5">
+                <!-- Active Step Banner -->
+                <div class="flex items-start sm:items-center space-x-3 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-amber-500/15 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                        <i class="fa-solid fa-dolly"></i>
+                    </div>
+                    <div class="min-w-0">
+                        <div id="step-instruction-title" class="text-xs font-bold text-amber-400 uppercase tracking-wider truncate">
+                            Step 0 of 0 (0 / 0 Cartons)
+                        </div>
+                        <div id="step-instruction-desc" class="text-xs sm:text-sm font-medium text-slate-100 truncate">
+                            Upload a CSV file and click "Run AI Multi-Pass Packing" to generate loading steps.
+                        </div>
+                    </div>
                 </div>
-                <div>
-                    <div id="step-instruction-title" class="text-xs font-bold text-slate-400 uppercase tracking-wider">Loading Step 0 of 0</div>
-                    <div id="step-instruction-desc" class="text-sm font-medium text-white truncate max-w-md">Load data and run packing to generate sequence.</div>
+
+                <!-- Live Step Mode & Batch Size Selector -->
+                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <div class="flex items-center space-x-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5">
+                        <label for="step-mode-select" class="text-[11px] font-semibold text-slate-400">Step Mode:</label>
+                        <select id="step-mode-select" onchange="onStepModeChange()" class="bg-slate-800 text-xs text-white font-medium rounded-lg px-2 py-1 border border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                            <option value="single">Carton-by-Carton (1)</option>
+                            <option value="batch" selected>Custom Batch (N)</option>
+                            <option value="auto">Auto (Wall / Layer)</option>
+                        </select>
+                    </div>
+
+                    <div id="batch-size-wrap" class="flex items-center space-x-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5">
+                        <label for="batch-size-input" class="text-[11px] font-semibold text-slate-400">Cartons/Step:</label>
+                        <input id="batch-size-input" type="number" min="1" max="5000" value="10" oninput="onBatchSizeInput()" class="w-16 bg-slate-800 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white font-mono text-center focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <div class="flex items-center space-x-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1.5">
+                        <label for="speed-select" class="text-[11px] font-semibold text-slate-400">Speed:</label>
+                        <select id="speed-select" onchange="onSpeedChange()" class="bg-slate-800 text-xs text-indigo-300 font-mono font-semibold rounded-lg px-2 py-1 border border-slate-700 focus:outline-none focus:border-indigo-500 cursor-pointer">
+                            <option value="0.5">0.5x</option>
+                            <option value="1" selected>1x</option>
+                            <option value="2">2x</option>
+                            <option value="5">5x</option>
+                            <option value="10">10x</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
-            <div class="flex items-center space-x-2">
-                <button onclick="stepFirst()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs font-medium transition" title="First Step">
-                    <i class="fa-solid fa-backward-step"></i>
-                </button>
-                <button onclick="stepPrev()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
-                    <i class="fa-solid fa-chevron-left"></i>
-                    <span>Prev</span>
-                </button>
-                <button id="play-pause-btn" onclick="togglePlayPause()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center space-x-1.5 shadow-md transition">
-                    <i id="play-icon" class="fa-solid fa-play"></i>
-                    <span id="play-text">Play Sequence</span>
-                </button>
-                <button onclick="stepNext()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
-                    <span>Next</span>
-                    <i class="fa-solid fa-chevron-right"></i>
-                </button>
-                <button onclick="showFullContainer()" class="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-indigo-300 rounded-lg text-xs font-medium flex items-center space-x-1.5 transition">
-                    <i class="fa-solid fa-eye"></i>
-                    <span>Full View</span>
-                </button>
+            <!-- Row 2: Interactive Timeline Slider + Playback Buttons -->
+            <div class="flex flex-col md:flex-row items-center gap-3">
+                <!-- Timeline Scrubber -->
+                <div class="w-full md:flex-1 flex items-center space-x-3">
+                    <span class="text-[11px] font-mono text-slate-400 shrink-0">0</span>
+                    <input id="step-slider" type="range" min="0" max="0" value="0" oninput="onSliderScrub(this.value)" class="timeline-slider flex-1 w-full">
+                    <span id="slider-max-label" class="text-[11px] font-mono text-slate-400 shrink-0 min-w-[28px] text-right">0</span>
+                </div>
+
+                <!-- Playback Buttons -->
+                <div class="flex items-center space-x-1.5 shrink-0">
+                    <button onclick="stepReset()" class="p-2.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-xl text-xs transition" title="Reset to Empty Container (Step 0)">
+                        <i class="fa-solid fa-backward-step"></i>
+                    </button>
+                    <button onclick="stepPrev()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-medium flex items-center space-x-1 transition">
+                        <i class="fa-solid fa-chevron-left"></i>
+                        <span>Prev</span>
+                    </button>
+                    <button id="play-pause-btn" onclick="togglePlayPause()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center space-x-1.5 shadow-md shadow-indigo-600/25 transition min-w-[96px] justify-center">
+                        <i id="play-icon" class="fa-solid fa-play"></i>
+                        <span id="play-text">Play</span>
+                    </button>
+                    <button onclick="stepNext()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-medium flex items-center space-x-1 transition">
+                        <span>Next</span>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button onclick="showFullContainer()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-indigo-500/40 text-indigo-300 rounded-xl text-xs font-semibold flex items-center space-x-1.5 transition" title="Show Full Container">
+                        <i class="fa-solid fa-eye"></i>
+                        <span class="hidden sm:inline">Full Container</span>
+                    </button>
+                </div>
             </div>
-        </div>
+        </section>
     </main>
 
     <script>
-        // --- Modal Notification Helpers ---
+        // =========================================================================
+        // 1. CONFIGURATION & GLOBAL STATE
+        // =========================================================================
+        const CONTAINERS = {
+            '20ft': { name: "20' Standard", l: 5.90, w: 2.35, h: 2.39, cbm: 33.14 },
+            '40ft': { name: "40' Standard", l: 12.03, w: 2.35, h: 2.39, cbm: 67.57 },
+            '40hc': { name: "40' High Cube", l: 12.03, w: 2.35, h: 2.69, cbm: 76.05 }
+        };
+
+        // High-contrast distinct color palette for SKUs without a Color column
+        const SKU_PALETTE = [
+            "#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899",
+            "#8b5cf6", "#06b6d4", "#84cc16", "#f97316", "#ef4444",
+            "#3b82f6", "#14b8a6", "#eab308", "#d946ef", "#22c55e",
+            "#f43f5e", "#a855f7", "#0284c7", "#65a30d", "#ea580c",
+            "#dc2626", "#7c3aed", "#0d9488", "#ca8a04", "#db2777",
+            "#2563eb", "#16a34a", "#e11d48", "#0891b2", "#4d7c0f"
+        ];
+
+        let rawItemsData = [];        // Uploaded CSV manifest items
+        let packedResult = null;      // { containerSpec, packedBoxes (sorted), unpackedBoxes, steps, totalVolume, packedVolume }
+        let currentStepIndex = 0;     // 0 = Empty Container, 1..N = Step index (1-based)
+        let isPlaying = false;
+        let playTimer = null;
+        let isPackingBusy = false;
+
+        // Three.js Globals
+        let scene, camera, renderer, controls, raycaster, mouse;
+        let containerMeshGroup = new THREE.Group();
+        let boxesMeshGroup = new THREE.Group();
+        let allBoxMeshes = [];
+
+        // Cached Three.js geometries & materials for 60fps performance with 1,000+ cartons
+        const geoCache = new Map();
+        const edgeGeoCache = new Map();
+        const normalMatCache = new Map();
+        const highlightMatCache = new Map();
+        const normalEdgeMat = new THREE.LineBasicMaterial({ color: 0x020617, transparent: true, opacity: 0.42 });
+        const highlightEdgeMat = new THREE.LineBasicMaterial({ color: 0xfef08a, transparent: false, opacity: 1.0 });
+
+        // =========================================================================
+        // 2. MODAL NOTIFICATION HELPERS
+        // =========================================================================
         function showModal(title, message) {
             document.getElementById('modal-title').innerText = title;
             document.getElementById('modal-message').innerText = message;
@@ -235,91 +388,83 @@
             document.getElementById('modal').classList.add('hidden');
         }
 
-        // --- Container Dimensions Configuration (Internal dimensions in meters) ---
-        const CONTAINERS = {
-            '20ft': { name: "20' Standard", l: 5.90, w: 2.35, h: 2.39, cbm: 33.14 },
-            '40ft': { name: "40' Standard", l: 12.03, w: 2.35, h: 2.39, cbm: 67.57 },
-            '40hc': { name: "40' High Cube", l: 12.03, w: 2.35, h: 2.69, cbm: 76.05 }
-        };
-
-        // --- Distinct Color Palette for Auto-Coloring SKUs ---
-        const PALETTE = [
-            "#4f46e5", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899",
-            "#8b5cf6", "#06b6d4", "#84cc16", "#f97316", "#ef4444",
-            "#6366f1", "#14b8a6", "#eab308", "#d946ef", "#3b82f6",
-            "#22c55e", "#f43f5e", "#a855f7", "#0284c7", "#65a30d",
-            "#ea580c", "#dc2626", "#7c3aed", "#0d9488", "#ca8a04",
-            "#db2777", "#2563eb", "#16a34a"
-        ];
-
-        // --- Global State ---
-        let rawItemsData = []; // [{name, l, w, h, qty, color}]
-        let packedResult = null; // Output from 3D Bin Packer
-        let currentStepIndex = 0;
-        let isPlaying = false;
-        let playInterval = null;
-
-        // --- Three.js Globals ---
-        let scene, camera, renderer, controls, raycaster, mouse;
-        let containerMeshGroup = new THREE.Group();
-        let boxesMeshGroup = new THREE.Group();
-        let allBoxMeshes = [];
-
-        // --- Initialize App on Load ---
+        // =========================================================================
+        // 3. APP INITIALIZATION & THREE.JS SCENE SETUP
+        // =========================================================================
         window.addEventListener('DOMContentLoaded', () => {
             initThreeJS();
-            
+            updateContainerInfoDisplay();
             window.addEventListener('resize', onWindowResize);
 
             document.getElementById('container-select').addEventListener('change', () => {
+                updateContainerInfoDisplay();
                 updateContainerWireframe();
-                if (rawItemsData.length > 0) {
-                    runPackingAlgorithm();
+                if (rawItemsData.length > 0 && !isPackingBusy) {
+                    runPackingAlgorithmAsync();
                 }
+            });
+
+            // Drag & drop visual highlight for CSV dropzone
+            const dz = document.getElementById('csv-dropzone');
+            dz.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dz.classList.add('border-indigo-400', 'bg-indigo-950/30');
+            });
+            dz.addEventListener('dragleave', () => {
+                dz.classList.remove('border-indigo-400', 'bg-indigo-950/30');
+            });
+            dz.addEventListener('drop', () => {
+                dz.classList.remove('border-indigo-400', 'bg-indigo-950/30');
             });
         });
 
-        // --- Three.js Setup ---
+        function updateContainerInfoDisplay() {
+            const spec = CONTAINERS[document.getElementById('container-select').value];
+            document.getElementById('container-dims-hint').innerText = `${spec.l.toFixed(2)} × ${spec.w.toFixed(2)} × ${spec.h.toFixed(2)} m`;
+            document.getElementById('stat-container-vol').innerText = `${spec.cbm.toFixed(2)} CBM`;
+        }
+
         function initThreeJS() {
             const container = document.getElementById('canvas-container');
-            
+
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x020617);
+            scene.background = new THREE.Color(0x0f172a);
 
-            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 150);
-            camera.position.set(16, 10, 14);
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 200);
+            camera.position.set(16.5, 9.5, 13.5);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
             renderer.setSize(container.clientWidth, container.clientHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.shadowMap.enabled = true;
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.06;
-            controls.target.set(6, 1.3, 1.17);
+            controls.maxDistance = 65;
+            controls.minDistance = 2;
 
-            // Lighting
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            // Balanced Studio Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.72);
             scene.add(ambientLight);
 
-            const dirLight = new THREE.DirectionalLight(0xffffff, 0.75);
-            dirLight.position.set(20, 35, 25);
-            scene.add(dirLight);
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.75);
+            dirLight1.position.set(18, 30, 22);
+            scene.add(dirLight1);
 
-            const dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.4);
-            dirLight2.position.set(-20, 15, -20);
+            const dirLight2 = new THREE.DirectionalLight(0x94a3b8, 0.45);
+            dirLight2.position.set(-18, 14, -18);
             scene.add(dirLight2);
 
-            const gridHelper = new THREE.GridHelper(32, 32, 0x334155, 0x1e293b);
+            // Subtle Ground Grid
+            const gridHelper = new THREE.GridHelper(36, 36, 0x334155, 0x1e293b);
             gridHelper.position.set(6, -0.02, 1.2);
             scene.add(gridHelper);
 
             scene.add(containerMeshGroup);
             scene.add(boxesMeshGroup);
 
-            // Raycaster for hover inspection
+            // Raycaster for Interactive Hover Tooltip
             raycaster = new THREE.Raycaster();
             mouse = new THREE.Vector2();
             renderer.domElement.addEventListener('mousemove', onCanvasMouseMove);
@@ -331,7 +476,98 @@
             animateThree();
         }
 
+        function createFloorLabelMesh(text, bgColor, textColor) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = textColor;
+            ctx.lineWidth = 6;
+            ctx.strokeRect(6, 6, canvas.width - 12, canvas.height - 12);
+            ctx.fillStyle = textColor;
+            ctx.font = 'bold 52px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.92, side: THREE.DoubleSide });
+            const geo = new THREE.PlaneGeometry(1.9, 0.48);
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.rotation.z = Math.PI / 2;
+            return mesh;
+        }
+
+        function updateContainerWireframe() {
+            containerMeshGroup.clear();
+            const spec = CONTAINERS[document.getElementById('container-select').value];
+            const L = spec.l, W = spec.w, H = spec.h;
+
+            // Semi-transparent container bounding box
+            const boxGeo = new THREE.BoxGeometry(L, H, W);
+            const shellMat = new THREE.MeshBasicMaterial({
+                color: 0x6366f1,
+                transparent: true,
+                opacity: 0.045,
+                depthWrite: false,
+                side: THREE.BackSide
+            });
+            const shellMesh = new THREE.Mesh(boxGeo, shellMat);
+            shellMesh.position.set(L / 2, H / 2, W / 2);
+            containerMeshGroup.add(shellMesh);
+
+            // Crisp wireframe edges
+            const edges = new THREE.EdgesGeometry(boxGeo);
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.85 });
+            const wireframeBox = new THREE.LineSegments(edges, lineMat);
+            wireframeBox.position.set(L / 2, H / 2, W / 2);
+            containerMeshGroup.add(wireframeBox);
+
+            // Container Floor
+            const floorGeo = new THREE.PlaneGeometry(L, W);
+            const floorMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                roughness: 0.85,
+                transparent: true,
+                opacity: 0.72,
+                side: THREE.DoubleSide
+            });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.set(L / 2, 0, W / 2);
+            containerMeshGroup.add(floor);
+
+            // Back Wall Highlight Plane (X = 0)
+            const backWallGeo = new THREE.PlaneGeometry(W, H);
+            const backWallMat = new THREE.MeshBasicMaterial({
+                color: 0x4f46e5,
+                transparent: true,
+                opacity: 0.14,
+                side: THREE.DoubleSide,
+                depthWrite: false
+            });
+            const backWall = new THREE.Mesh(backWallGeo, backWallMat);
+            backWall.rotation.y = Math.PI / 2;
+            backWall.position.set(0.002, H / 2, W / 2);
+            containerMeshGroup.add(backWall);
+
+            // Floor Indicators: BACK WALL (Load Start) & DOOR END (Load Finish)
+            const backLabel = createFloorLabelMesh('BACK WALL (START)', 'rgba(30,27,75,0.9)', '#a5b4fc');
+            backLabel.position.set(-0.45, 0.01, W / 2);
+            containerMeshGroup.add(backLabel);
+
+            const doorLabel = createFloorLabelMesh('DOOR END (FRONT)', 'rgba(6,78,59,0.9)', '#6ee7b7');
+            doorLabel.position.set(L + 0.45, 0.01, W / 2);
+            containerMeshGroup.add(doorLabel);
+
+            controls.target.set(L / 2, H / 2, W / 2);
+        }
+
         function onCanvasMouseMove(event) {
+            if (allBoxMeshes.length === 0) return;
             const rect = renderer.domElement.getBoundingClientRect();
             mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
             mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
@@ -342,13 +578,21 @@
 
             const tooltip = document.getElementById('box-tooltip');
             if (intersects.length > 0) {
-                const hit = intersects[0].object;
-                const d = hit.userData;
+                const d = intersects[0].object.userData;
+                document.getElementById('tooltip-color').style.backgroundColor = d.color;
                 document.getElementById('tooltip-title').innerText = d.boxName;
-                document.getElementById('tooltip-dims').innerText = `Placed Dims: ${d.l} × ${d.w} × ${d.h} cm`;
-                document.getElementById('tooltip-pos').innerText = `Pos (X,Y,Z): ${d.x}, ${d.y}, ${d.z} cm | Step ${d.stepIndex + 1}`;
-                tooltip.style.left = `${event.clientX - rect.left + 14}px`;
-                tooltip.style.top = `${event.clientY - rect.top + 14}px`;
+                document.getElementById('tooltip-dims').innerText = `Placed: ${d.l} × ${d.w} × ${d.h} cm`;
+                document.getElementById('tooltip-pos').innerText = `Coords (X,Y,Z): ${d.x}, ${d.y}, ${d.z} cm`;
+                document.getElementById('tooltip-step').innerText = `Carton #${d.orderNum} • Step ${d.stepIndex}`;
+
+                // Keep tooltip inside canvas bounds
+                let left = event.clientX - rect.left + 16;
+                let top = event.clientY - rect.top + 16;
+                if (left + 230 > rect.width) left = event.clientX - rect.left - 230;
+                if (top + 100 > rect.height) top = event.clientY - rect.top - 100;
+
+                tooltip.style.left = `${Math.max(8, left)}px`;
+                tooltip.style.top = `${Math.max(8, top)}px`;
                 tooltip.classList.remove('hidden');
             } else {
                 tooltip.classList.add('hidden');
@@ -363,133 +607,139 @@
 
         function onWindowResize() {
             const container = document.getElementById('canvas-container');
+            if (!container || container.clientWidth === 0 || container.clientHeight === 0) return;
             camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(container.clientWidth, container.clientHeight);
         }
 
-        // --- Render Container Wireframe & Floor ---
-        function updateContainerWireframe() {
-            containerMeshGroup.clear();
-            const typeKey = document.getElementById('container-select').value;
-            const spec = CONTAINERS[typeKey];
-
-            const L = spec.l;
-            const W = spec.w;
-            const H = spec.h;
-
-            const boxGeo = new THREE.BoxGeometry(L, H, W);
-            const edges = new THREE.EdgesGeometry(boxGeo);
-            const lineMat = new THREE.LineBasicMaterial({ color: 0x818cf8, transparent: true, opacity: 0.75 });
-            const wireframeBox = new THREE.LineSegments(edges, lineMat);
-            wireframeBox.position.set(L / 2, H / 2, W / 2);
-            containerMeshGroup.add(wireframeBox);
-
-            const floorGeo = new THREE.PlaneGeometry(L, W);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.9, transparent: true, opacity: 0.65, side: THREE.DoubleSide });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.rotation.x = -Math.PI / 2;
-            floor.position.set(L / 2, 0, W / 2);
-            containerMeshGroup.add(floor);
-
-            controls.target.set(L / 2, H / 2, W / 2);
-        }
-
-        // --- Data Management & Template ---
+        // =========================================================================
+        // 4. CSV TEMPLATE & ASYNC PARSING (PAPAPARSE)
+        // =========================================================================
         function downloadTemplate() {
-            let csvContent = "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\n";
-            csvContent += "Carton-A,40,30,20,50,#4f46e5\n";
-            csvContent += "Carton-B,50,40,30,30,#10b981\n";
-            csvContent += "Carton-C,60,50,40,20,#f59e0b\n";
-            
+            const csvContent =
+                "Item Name,Length (cm),Width (cm),Height (cm),Quantity,Color\n" +
+                "SKU-101,60,40,40,45,#4f46e5\n" +
+                "SKU-102,50,35,45,60,#10b981\n" +
+                "SKU-103,45,45,38,40,#f59e0b\n" +
+                "SKU-104,38,28,50,30,#ec4899\n";
+
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = "cargo_template.csv";
+            a.download = "cargopack_template.csv";
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
 
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
+            document.getElementById('uploaded-filename').innerText = `Loaded: ${file.name}`;
+            document.getElementById('canvas-status-label').innerText = 'Parsing CSV...';
+
             Papa.parse(file, {
                 header: true,
                 skipEmptyLines: true,
+                worker: false,
                 complete: function(results) {
-                    if (results.data && results.data.length > 0) {
+                    try {
+                        if (!results.data || results.data.length === 0) {
+                            showModal("Empty CSV", "The uploaded CSV file contains no rows.");
+                            return;
+                        }
+
                         const parsed = [];
                         results.data.forEach((row, idx) => {
-                            // Normalize header keys (trim spaces and case-insensitive lookup)
                             const norm = {};
-                            Object.keys(row).forEach(k => { norm[k.trim().toLowerCase()] = row[k]; });
+                            Object.keys(row).forEach(k => {
+                                norm[k.trim().toLowerCase()] = row[k];
+                            });
 
-                            const name = norm['item name'] || norm['name'] || norm['sku'] || `Item-${idx + 1}`;
+                            const name = norm['item name'] || norm['item'] || norm['name'] || norm['sku'] || `Item-${idx + 1}`;
                             const l = Math.round(parseFloat(norm['length (cm)'] || norm['length'] || norm['l']));
                             const w = Math.round(parseFloat(norm['width (cm)'] || norm['width'] || norm['w']));
                             const h = Math.round(parseFloat(norm['height (cm)'] || norm['height'] || norm['h']));
-                            const qty = parseInt(norm['quantity'] || norm['qty'] || norm['q']);
-                            const color = norm['color'] || PALETTE[idx % PALETTE.length];
+                            const qty = parseInt(norm['quantity'] || norm['qty'] || norm['cartons'] || norm['q'], 10);
 
-                            if (!isNaN(l) && !isNaN(w) && !isNaN(h) && !isNaN(qty) && qty > 0) {
+                            let color = (norm['color'] || '').trim();
+                            if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color)) {
+                                color = SKU_PALETTE[idx % SKU_PALETTE.length];
+                            }
+
+                            if (l > 0 && w > 0 && h > 0 && qty > 0 && !isNaN(l) && !isNaN(w) && !isNaN(h) && !isNaN(qty)) {
                                 parsed.push({ name: String(name).trim(), l, w, h, qty, color });
                             }
                         });
-                        if (parsed.length > 0) {
-                            rawItemsData = parsed;
-                            renderCargoTable();
-                            runPackingAlgorithm();
-                        } else {
-                            showModal("Error", "No valid items found in CSV. Make sure columns include Item Name, Length (cm), Width (cm), Height (cm), Quantity.");
+
+                        if (parsed.length === 0) {
+                            showModal(
+                                "Invalid CSV Columns",
+                                "No valid cargo rows were detected. Ensure headers include: Item Name, Length (cm), Width (cm), Height (cm), Quantity."
+                            );
+                            return;
                         }
+
+                        rawItemsData = parsed;
+                        renderCargoTable();
+                        runPackingAlgorithmAsync();
+                    } catch (err) {
+                        showModal("Parse Error", "Failed to process CSV data: " + err.message);
                     }
                 },
                 error: function(err) {
-                    showModal("CSV Error", err.message);
+                    showModal("CSV Read Error", err.message);
                 }
             });
+
+            // Reset input so re-uploading the same filename triggers onchange
+            event.target.value = '';
         }
 
         function renderCargoTable() {
             const tbody = document.getElementById('cargo-table-body');
             tbody.innerHTML = '';
-            let totalQty = 0;
-            let totalCbm = 0;
 
             if (rawItemsData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="3" class="p-3 text-center text-slate-500 italic">No items loaded.</td></tr>`;
-                document.getElementById('total-items-badge').innerText = `0 units`;
-                document.getElementById('total-cbm-badge').innerText = `0.00 CBM`;
+                tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-slate-500 italic text-xs">Upload a CSV file to load cargo items.</td></tr>`;
+                document.getElementById('total-items-badge').innerText = '0 units';
+                document.getElementById('total-cbm-badge').innerText = '0.00 CBM';
                 return;
             }
+
+            let totalQty = 0;
+            let totalCbm = 0;
+            const frag = document.createDocumentFragment();
 
             rawItemsData.forEach(item => {
                 totalQty += item.qty;
                 totalCbm += (item.l * item.w * item.h * item.qty) / 1000000;
+
                 const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-800/40 transition";
                 tr.innerHTML = `
-                    <td class="p-2 font-medium text-white flex items-center space-x-2">
+                    <td class="py-1.5 px-2.5 font-medium text-white flex items-center space-x-2">
                         <span class="w-2.5 h-2.5 rounded-full shrink-0 inline-block" style="background-color: ${item.color}"></span>
                         <span class="truncate max-w-[115px]" title="${item.name}">${item.name}</span>
                     </td>
-                    <td class="p-2 text-slate-400 font-mono">${item.l}×${item.w}×${item.h}</td>
-                    <td class="p-2 text-indigo-400 font-bold text-right">${item.qty}</td>
+                    <td class="py-1.5 px-2 text-slate-400 font-mono text-[11px]">${item.l}×${item.w}×${item.h}</td>
+                    <td class="py-1.5 px-2.5 text-indigo-300 font-bold font-mono text-right">${item.qty}</td>
                 `;
-                tbody.appendChild(tr);
+                frag.appendChild(tr);
             });
 
+            tbody.appendChild(frag);
             document.getElementById('total-items-badge').innerText = `${totalQty} units`;
             document.getElementById('total-cbm-badge').innerText = `${totalCbm.toFixed(2)} CBM`;
         }
 
-
-        // ============================================================================
-        // HIGH-DENSITY 3D MAXIMAL FREE-RECTANGLES & WALL-BUILDING PACKING ENGINE
-        // ============================================================================
-
+        // =========================================================================
+        // 5. HIGH-DENSITY 3D MAXIMAL FREE-SPACES + WALL-BUILDING PACKING ENGINE
+        // =========================================================================
         function getUniqueOrientations(l, w, h) {
             const raw = [
                 { l: l, w: w, h: h },
@@ -501,7 +751,8 @@
             ];
             const unique = [];
             const seen = new Set();
-            for (const o of raw) {
+            for (let i = 0; i < raw.length; i++) {
+                const o = raw[i];
                 const key = `${o.l}_${o.w}_${o.h}`;
                 if (!seen.has(key)) {
                     seen.add(key);
@@ -529,11 +780,12 @@
         }
 
         /**
-         * Splits any intersecting free space into up to 6 maximal non-overlapping sub-spaces
-         * and removes redundant subspaces that are strictly contained within others.
+         * Splits intersecting free boxes into up to 6 maximal non-overlapping sub-spaces.
+         * Never discards large front-end container spaces; filters only slivers smaller than minDim.
          */
-        function updateFreeSpaces(freeSpaces, placedBox) {
+        function updateFreeSpaces(freeSpaces, placedBox, minDim) {
             const nextSpaces = [];
+
             for (let i = 0; i < freeSpaces.length; i++) {
                 const fs = freeSpaces[i];
                 if (!boxesOverlap(fs, placedBox)) {
@@ -541,62 +793,55 @@
                     continue;
                 }
 
-                // 1. Space before placedBox along X (rare if placing at back, but kept for completeness)
+                // -X
                 if (placedBox.x > fs.x) {
-                    nextSpaces.push({
-                        x: fs.x, y: fs.y, z: fs.z,
-                        l: placedBox.x - fs.x, w: fs.w, h: fs.h
-                    });
+                    const nl = placedBox.x - fs.x;
+                    if (nl >= minDim) nextSpaces.push({ x: fs.x, y: fs.y, z: fs.z, l: nl, w: fs.w, h: fs.h });
                 }
-                // 2. Space in front of placedBox along X (+X direction toward container door)
+                // +X (toward container door)
                 if (placedBox.x + placedBox.l < fs.x + fs.l) {
-                    nextSpaces.push({
-                        x: placedBox.x + placedBox.l, y: fs.y, z: fs.z,
-                        l: (fs.x + fs.l) - (placedBox.x + placedBox.l), w: fs.w, h: fs.h
-                    });
+                    const nx = placedBox.x + placedBox.l;
+                    const nl = (fs.x + fs.l) - nx;
+                    if (nl >= minDim) nextSpaces.push({ x: nx, y: fs.y, z: fs.z, l: nl, w: fs.w, h: fs.h });
                 }
-                // 3. Space below placedBox along Y
+                // -Y
                 if (placedBox.y > fs.y) {
-                    nextSpaces.push({
-                        x: fs.x, y: fs.y, z: fs.z,
-                        l: fs.l, w: fs.w, h: placedBox.y - fs.y
-                    });
+                    const nh = placedBox.y - fs.y;
+                    if (nh >= minDim) nextSpaces.push({ x: fs.x, y: fs.y, z: fs.z, l: fs.l, w: fs.w, h: nh });
                 }
-                // 4. Space above placedBox along Y (+Y direction toward ceiling)
+                // +Y (above placed box)
                 if (placedBox.y + placedBox.h < fs.y + fs.h) {
-                    nextSpaces.push({
-                        x: fs.x, y: placedBox.y + placedBox.h, z: fs.z,
-                        l: fs.l, w: fs.w, h: (fs.y + fs.h) - (placedBox.y + placedBox.h)
-                    });
+                    const ny = placedBox.y + placedBox.h;
+                    const nh = (fs.y + fs.h) - ny;
+                    if (nh >= minDim) nextSpaces.push({ x: fs.x, y: ny, z: fs.z, l: fs.l, w: fs.w, h: nh });
                 }
-                // 5. Space to the left along Z
+                // -Z
                 if (placedBox.z > fs.z) {
-                    nextSpaces.push({
-                        x: fs.x, y: fs.y, z: fs.z,
-                        l: fs.l, w: placedBox.z - fs.z, h: fs.h
-                    });
+                    const nw = placedBox.z - fs.z;
+                    if (nw >= minDim) nextSpaces.push({ x: fs.x, y: fs.y, z: fs.z, l: fs.l, w: nw, h: fs.h });
                 }
-                // 6. Space to the right along Z (+Z direction across width)
+                // +Z (right of placed box)
                 if (placedBox.z + placedBox.w < fs.z + fs.w) {
-                    nextSpaces.push({
-                        x: fs.x, y: fs.y, z: placedBox.z + placedBox.w,
-                        l: fs.l, w: (fs.z + fs.w) - (placedBox.z + placedBox.w), h: fs.h
-                    });
+                    const nz = placedBox.z + placedBox.w;
+                    const nw = (fs.z + fs.w) - nz;
+                    if (nw >= minDim) nextSpaces.push({ x: fs.x, y: fs.y, z: nz, l: fs.l, w: nw, h: fs.h });
                 }
             }
 
-            // Filter out tiny unusable slivers (< 15cm) and contained spaces
-            const filtered = nextSpaces.filter(s => s.l >= 18 && s.w >= 18 && s.h >= 18);
+            // Sort by volume descending so containment check eliminates sub-spaces fast
+            nextSpaces.sort((a, b) => (b.l * b.w * b.h) - (a.l * a.w * a.h));
+
             const maximal = [];
-            for (let i = 0; i < filtered.length; i++) {
+            for (let i = 0; i < nextSpaces.length; i++) {
+                const cand = nextSpaces[i];
                 let dominated = false;
-                for (let j = 0; j < filtered.length; j++) {
-                    if (i !== j && isContainedIn(filtered[i], filtered[j])) {
+                for (let j = 0; j < maximal.length; j++) {
+                    if (isContainedIn(cand, maximal[j])) {
                         dominated = true;
                         break;
                     }
                 }
-                if (!dominated) maximal.push(filtered[i]);
+                if (!dominated) maximal.push(cand);
             }
 
             // Sort back-to-front (X), bottom-to-top (Y), left-to-right (Z)
@@ -605,64 +850,65 @@
         }
 
         /**
-         * Single pass of the 3D Maximal Free-Rectangles Block/Box Packer
+         * Single packing pass with integer cm math, 6 rotations, and zero overlap guarantee.
          */
-        function runMaximalSpacePass(skuGroups, cL, cW, cH, strategyMode = 0) {
+        function executeSinglePackingPass(skuGroups, cL, cW, cH, strategyMode, minDim) {
             let freeSpaces = [{ x: 0, y: 0, z: 0, l: cL, w: cW, h: cH }];
-            let packedBoxes = [];
-            let unpackedBoxes = [];
+            const packedBoxes = [];
+            const unpackedBoxes = [];
 
-            // Flatten boxes according to SKU ordering
-            let pool = [];
-            skuGroups.forEach(group => {
-                for (let i = 0; i < group.qty; i++) {
+            const pool = [];
+            for (let g = 0; g < skuGroups.length; g++) {
+                const grp = skuGroups[g];
+                const oris = getUniqueOrientations(grp.l, grp.w, grp.h);
+                for (let q = 0; q < grp.qty; q++) {
                     pool.push({
-                        id: group.startId + i,
-                        name: group.name,
-                        l: group.l,
-                        w: group.w,
-                        h: group.h,
-                        color: group.color,
-                        volume: group.l * group.w * group.h
+                        id: grp.startId + q,
+                        name: grp.name,
+                        l: grp.l,
+                        w: grp.w,
+                        h: grp.h,
+                        color: grp.color,
+                        volume: grp.unitVol,
+                        orientations: oris
                     });
                 }
-            });
+            }
 
             for (let bIdx = 0; bIdx < pool.length; bIdx++) {
                 const box = pool[bIdx];
-                const orientations = getUniqueOrientations(box.l, box.w, box.h);
+                const orientations = box.orientations;
 
                 let bestSpaceIdx = -1;
                 let bestOri = null;
                 let bestScore = Infinity;
 
-                // Evaluate candidate free spaces
                 for (let sIdx = 0; sIdx < freeSpaces.length; sIdx++) {
                     const fs = freeSpaces[sIdx];
+                    // Quick volume reject
                     if (fs.l * fs.w * fs.h < box.volume) continue;
+
+                    // Early cutoff: if we already found a great back-wall placement and current space is much further forward
+                    if (bestSpaceIdx !== -1 && fs.x > freeSpaces[bestSpaceIdx].x + 80) break;
 
                     for (let oIdx = 0; oIdx < orientations.length; oIdx++) {
                         const ori = orientations[oIdx];
                         if (ori.l <= fs.l && ori.w <= fs.w && ori.h <= fs.h) {
-                            // Primary priority: pack tightly toward the back (lowest X), then floor (lowest Y), then left wall (lowest Z)
-                            let score = fs.x * 100000 + fs.y * 500 + fs.z * 50;
+                            // Primary anchor: Back-to-front (X), Bottom-to-top (Y), Left-to-right (Z)
+                            let score = fs.x * 100000 + fs.y * 600 + fs.z * 50;
 
                             if (strategyMode === 0) {
-                                // Best harmonic fit: reward orientations whose width/height evenly divide or tightly fit the free space
-                                const remW = fs.w % ori.w;
-                                const remH = fs.h % ori.h;
-                                score += remW * 12 + remH * 12 + ori.l * 2;
+                                // Harmonic wall-fit: favors orientations that cleanly divide remaining width & height
+                                score += (fs.w % ori.w) * 14 + (fs.h % ori.h) * 14 + ori.l * 2;
                             } else if (strategyMode === 1) {
-                                // Compact X wall depth: prefer small X footprint so wall stays thin & flat
-                                score += ori.l * 25 + (fs.w - ori.w) * 5;
+                                // Slim X-wall depth: keeps wall face flat along X
+                                score += ori.l * 28 + (fs.w - ori.w) * 4;
                             } else if (strategyMode === 2) {
-                                // Flattest layer priority
-                                score += ori.h * 20 + (fs.w % ori.w) * 10;
+                                // Best Short-Side Fit (BSSF)
+                                score += Math.min(fs.w - ori.w, fs.h - ori.h) * 16 + ori.h * 5;
                             } else {
-                                // Tightest Short-Side Fit (BSSF)
-                                const leftoverW = fs.w - ori.w;
-                                const leftoverH = fs.h - ori.h;
-                                score += Math.min(leftoverW, leftoverH) * 15;
+                                // Flattest layer height priority
+                                score += ori.h * 22 + (fs.w % ori.w) * 10;
                             }
 
                             if (score < bestScore) {
@@ -672,351 +918,604 @@
                             }
                         }
                     }
-
-                    // Early exit once we find a valid back-wall space to keep execution super fast
-                    if (bestSpaceIdx !== -1 && sIdx > 25) break;
                 }
 
                 if (bestSpaceIdx !== -1 && bestOri) {
-                    const targetSpace = freeSpaces[bestSpaceIdx];
+                    const fs = freeSpaces[bestSpaceIdx];
                     const placed = {
                         id: box.id,
                         name: box.name,
                         color: box.color,
-                        x: targetSpace.x,
-                        y: targetSpace.y,
-                        z: targetSpace.z,
+                        x: fs.x,
+                        y: fs.y,
+                        z: fs.z,
                         l: bestOri.l,
                         w: bestOri.w,
                         h: bestOri.h,
                         volume: box.volume
                     };
-                    packedBoxes.push(placed);
-                    freeSpaces = updateFreeSpaces(freeSpaces, placed);
+
+                    // Strict boundary containment assertion
+                    if (
+                        placed.x >= 0 && placed.y >= 0 && placed.z >= 0 &&
+                        placed.x + placed.l <= cL &&
+                        placed.y + placed.h <= cH &&
+                        placed.z + placed.w <= cW
+                    ) {
+                        packedBoxes.push(placed);
+                        freeSpaces = updateFreeSpaces(freeSpaces, placed, minDim);
+                    } else {
+                        unpackedBoxes.push(box);
+                    }
                 } else {
                     unpackedBoxes.push(box);
                 }
             }
 
-            const packedVolume = packedBoxes.reduce((acc, b) => acc + b.volume, 0);
+            let packedVolume = 0;
+            for (let i = 0; i < packedBoxes.length; i++) packedVolume += packedBoxes[i].volume;
             return { packedBoxes, unpackedBoxes, packedVolume };
         }
 
-        function runPackingAlgorithm() {
+        /**
+         * Non-blocking async multi-pass optimizer so UI stays smooth and displays progress.
+         */
+        async function runPackingAlgorithmAsync() {
+            if (isPackingBusy) return;
             if (!rawItemsData || rawItemsData.length === 0) {
-                showModal("Warning", "Please load cargo items first.");
+                showModal("No Cargo Data", "Please upload a CSV file first before running the packing algorithm.");
                 return;
             }
 
-            const typeKey = document.getElementById('container-select').value;
-            const containerSpec = CONTAINERS[typeKey];
+            stopPlayback();
+            isPackingBusy = true;
 
-            // Integer centimeters for exact collision-free geometry
-            const cL = Math.round(containerSpec.l * 100);
-            const cW = Math.round(containerSpec.w * 100);
-            const cH = Math.round(containerSpec.h * 100);
+            const btn = document.getElementById('run-pack-btn');
+            const btnIcon = document.getElementById('run-pack-icon');
+            const btnText = document.getElementById('run-pack-text');
+            const progWrap = document.getElementById('packing-progress-wrap');
+            const progBar = document.getElementById('packing-progress-bar');
+            const progLabel = document.getElementById('packing-progress-label');
+            const progPct = document.getElementById('packing-progress-pct');
 
-            let idCounter = 1;
-            const skuGroups = rawItemsData.map(item => {
-                const grp = {
-                    name: item.name,
-                    l: Math.round(item.l),
-                    w: Math.round(item.w),
-                    h: Math.round(item.h),
-                    qty: parseInt(item.qty),
-                    color: item.color,
-                    unitVol: Math.round(item.l) * Math.round(item.w) * Math.round(item.h),
-                    totalVol: Math.round(item.l) * Math.round(item.w) * Math.round(item.h) * parseInt(item.qty),
-                    startId: idCounter
-                };
-                idCounter += grp.qty;
-                return grp;
-            });
+            btn.disabled = true;
+            btnIcon.className = "fa-solid fa-spinner fa-spin";
+            btnText.innerText = "Optimizing 3D Layout...";
+            progWrap.classList.remove('hidden');
+            document.getElementById('canvas-status-label').innerText = "Running AI Multi-Pass Packing...";
 
-            const totalUnits = skuGroups.reduce((s, g) => s + g.qty, 0);
+            try {
+                const typeKey = document.getElementById('container-select').value;
+                const containerSpec = CONTAINERS[typeKey];
 
-            // Multi-Pass Heuristic Search (Stops immediately as soon as 100% of items are packed)
-            const orderings = [
-                // Order 1: Total SKU batch volume descending (packs large uniform walls first)
-                [...skuGroups].sort((a, b) => b.totalVol - a.totalVol),
-                // Order 2: Individual carton volume descending
-                [...skuGroups].sort((a, b) => b.unitVol - a.unitVol),
-                // Order 3: Longest edge descending
-                [...skuGroups].sort((a, b) => Math.max(b.l, b.w, b.h) - Math.max(a.l, a.w, a.h)),
-                // Order 4: Randomized SKU group order for non-linear space combinations
-                [...skuGroups].sort(() => Math.random() - 0.5)
-            ];
+                // Exact integer cm container dimensions
+                const cL = Math.round(containerSpec.l * 100);
+                const cW = Math.round(containerSpec.w * 100);
+                const cH = Math.round(containerSpec.h * 100);
 
-            let bestPass = null;
+                let idCounter = 1;
+                let minDim = Infinity;
+                const skuGroups = rawItemsData.map(item => {
+                    const l = Math.round(item.l);
+                    const w = Math.round(item.w);
+                    const h = Math.round(item.h);
+                    const qty = parseInt(item.qty, 10);
+                    minDim = Math.min(minDim, l, w, h);
+                    const grp = {
+                        name: item.name,
+                        l, w, h, qty,
+                        color: item.color,
+                        unitVol: l * w * h,
+                        totalVol: l * w * h * qty,
+                        maxEdge: Math.max(l, w, h),
+                        footprint: Math.max(l * w, l * h, w * h),
+                        startId: idCounter
+                    };
+                    idCounter += qty;
+                    return grp;
+                });
 
-            outerLoop:
-            for (let o = 0; o < orderings.length; o++) {
-                for (let mode = 0; mode < 3; mode++) {
-                    const res = runMaximalSpacePass(orderings[o], cL, cW, cH, mode);
+                const totalUnits = skuGroups.reduce((s, g) => s + g.qty, 0);
+
+                // Build diverse heuristic passes (same-SKU wall grouping + randomized perturbations)
+                const passes = [
+                    { label: "SKU Batch Wall (Harmonic)", order: [...skuGroups].sort((a, b) => b.totalVol - a.totalVol), mode: 0 },
+                    { label: "SKU Batch Wall (Slim-X)", order: [...skuGroups].sort((a, b) => b.totalVol - a.totalVol), mode: 1 },
+                    { label: "Unit Volume Desc (Harmonic)", order: [...skuGroups].sort((a, b) => b.unitVol - a.unitVol), mode: 0 },
+                    { label: "Longest Edge Desc (BSSF)", order: [...skuGroups].sort((a, b) => b.maxEdge - a.maxEdge), mode: 2 },
+                    { label: "Footprint Desc (Flat Layer)", order: [...skuGroups].sort((a, b) => b.footprint - a.footprint), mode: 3 },
+                    { label: "Randomized Heuristic #1", order: [...skuGroups].sort(() => Math.random() - 0.5), mode: 0 },
+                    { label: "Randomized Heuristic #2", order: [...skuGroups].sort(() => Math.random() - 0.5), mode: 1 },
+                    { label: "Randomized Heuristic #3", order: [...skuGroups].sort(() => Math.random() - 0.5), mode: 2 }
+                ];
+
+                let bestPass = null;
+
+                for (let p = 0; p < passes.length; p++) {
+                    const pct = Math.round(((p + 1) / passes.length) * 100);
+                    progLabel.innerText = `Pass ${p + 1}/${passes.length}: ${passes[p].label}`;
+                    progPct.innerText = `${pct}%`;
+                    progBar.style.width = `${pct}%`;
+
+                    // Yield to browser event loop so UI stays responsive
+                    await new Promise(resolve => setTimeout(resolve, 16));
+
+                    const res = executeSinglePackingPass(passes[p].order, cL, cW, cH, passes[p].mode, minDim);
                     if (
                         !bestPass ||
-                        res.packedBoxes.length > bestPass.packedBoxes.length ||
-                        (res.packedBoxes.length === bestPass.packedBoxes.length && res.packedVolume > bestPass.packedVolume)
+                        res.packedVolume > bestPass.packedVolume ||
+                        (res.packedVolume === bestPass.packedVolume && res.packedBoxes.length > bestPass.packedBoxes.length)
                     ) {
                         bestPass = res;
                     }
-                    // If 100% of cartons fit, no need to run additional passes
+
+                    // Instant early exit if 100% of cartons fit!
                     if (bestPass.packedBoxes.length === totalUnits) {
-                        break outerLoop;
+                        progLabel.innerText = `100% Fit achieved on Pass ${p + 1}!`;
+                        progPct.innerText = `100%`;
+                        progBar.style.width = `100%`;
+                        break;
                     }
                 }
+
+                // Sort all packed cartons in physical warehouse loading order:
+                // Back-to-Front (X ascending), Bottom-to-Top (Y ascending), Left-to-Right (Z ascending)
+                const sortedPacked = bestPass.packedBoxes.sort((a, b) => {
+                    if (a.x !== b.x) return a.x - b.x;
+                    if (a.y !== b.y) return a.y - b.y;
+                    return a.z - b.z;
+                });
+
+                // Assign permanent 1-based physical loading sequence number
+                sortedPacked.forEach((box, idx) => {
+                    box.orderNum = idx + 1;
+                });
+
+                packedResult = {
+                    containerSpec,
+                    cL, cW, cH,
+                    packedBoxes: sortedPacked,
+                    unpackedBoxes: bestPass.unpackedBoxes,
+                    steps: [],
+                    totalVolume: (cL * cW * cH) / 1000000,
+                    packedVolume: bestPass.packedVolume / 1000000
+                };
+
+                initVisualMeshes();
+                rebuildLoadingSteps(true);
+                updateStatsUI();
+
+            } catch (err) {
+                showModal("Packing Error", "An unexpected error occurred during 3D packing: " + err.message);
+            } finally {
+                isPackingBusy = false;
+                btn.disabled = false;
+                btnIcon.className = "fa-solid fa-wand-magic-sparkles";
+                btnText.innerText = "Run AI Multi-Pass Packing";
+                setTimeout(() => progWrap.classList.add('hidden'), 600);
             }
+        }
 
-            let packedBoxes = bestPass.packedBoxes;
-            let unpackedBoxes = bestPass.unpackedBoxes;
-
-            // Organize packed boxes into logical warehouse loading steps (back-to-front wall slices, bottom-to-top)
-            packedBoxes.sort((a, b) => {
-                const wallA = Math.floor(a.x / 60);
-                const wallB = Math.floor(b.x / 60);
-                if (wallA !== wallB) return wallA - wallB;
-                if (a.y !== b.y) return a.y - b.y;
-                if (a.z !== b.z) return a.z - b.z;
-                return a.x - b.x;
-            });
-
-            let steps = [];
-            let currentStepItems = [];
-            let currentWall = packedBoxes.length > 0 ? Math.floor(packedBoxes[0].x / 60) : 0;
-
-            packedBoxes.forEach((box) => {
-                const boxWall = Math.floor(box.x / 60);
-                if (boxWall !== currentWall || currentStepItems.length >= 35) {
-                    if (currentStepItems.length > 0) {
-                        steps.push([...currentStepItems]);
-                        currentStepItems = [];
-                    }
-                    currentWall = boxWall;
-                }
-                currentStepItems.push(box);
-            });
-            if (currentStepItems.length > 0) {
-                steps.push(currentStepItems);
+        // =========================================================================
+        // 6. 3D MESH CREATION (CACHED GEOMETRIES & MATERIALS FOR HIGH PERFORMANCE)
+        // =========================================================================
+        function getBoxGeometry(l, h, w) {
+            const key = `${l}_${h}_${w}`;
+            if (!geoCache.has(key)) {
+                const geom = new THREE.BoxGeometry(l / 100, h / 100, w / 100);
+                geoCache.set(key, geom);
+                edgeGeoCache.set(key, new THREE.EdgesGeometry(geom));
             }
+            return { geom: geoCache.get(key), edgeGeom: edgeGeoCache.get(key) };
+        }
 
-            packedResult = {
-                containerSpec,
-                packedBoxes,
-                unpackedBoxes,
-                steps,
-                totalVolume: (cL * cW * cH) / 1000000,
-                packedVolume: bestPass.packedVolume / 1000000
+        function getBoxMaterials(colorHex) {
+            if (!normalMatCache.has(colorHex)) {
+                normalMatCache.set(colorHex, new THREE.MeshStandardMaterial({
+                    color: colorHex,
+                    roughness: 0.48,
+                    metalness: 0.06
+                }));
+                highlightMatCache.set(colorHex, new THREE.MeshStandardMaterial({
+                    color: colorHex,
+                    emissive: new THREE.Color(0xfef08a),
+                    emissiveIntensity: 0.32,
+                    roughness: 0.3,
+                    metalness: 0.1
+                }));
+            }
+            return {
+                normal: normalMatCache.get(colorHex),
+                highlight: highlightMatCache.get(colorHex)
             };
-
-            updateStatsAndUI();
-            initVisualMeshes();
         }
 
-        // --- Update UI & Stats Panel ---
-        function updateStatsAndUI() {
-            if (!packedResult) return;
-
-            const cVol = packedResult.totalVolume;
-            const pVol = packedResult.packedVolume;
-            const efficiency = Math.min(100, ((pVol / cVol) * 100)).toFixed(1);
-
-            document.getElementById('stat-container-vol').innerText = `${cVol.toFixed(2)} CBM`;
-            document.getElementById('stat-packed-vol').innerText = `${pVol.toFixed(2)} CBM`;
-            document.getElementById('stat-efficiency').innerText = `${efficiency}%`;
-            document.getElementById('efficiency-bar').style.width = `${Math.min(100, parseFloat(efficiency))}%`;
-
-            const packedCount = packedResult.packedBoxes.length;
-            const totalUnitsCount = packedCount + packedResult.unpackedBoxes.length;
-            document.getElementById('stat-packed-units').innerText = `${packedCount} / ${totalUnitsCount}`;
-
-            const summaryEl = document.getElementById('packing-summary-text');
-            if (packedResult.unpackedBoxes.length === 0) {
-                summaryEl.className = "text-[11px] text-emerald-400 font-medium";
-                summaryEl.innerText = `✓ 100% Fit! All ${packedCount} cartons (${pVol.toFixed(2)} CBM) packed inside ${packedResult.containerSpec.name}.`;
-            } else {
-                summaryEl.className = "text-[11px] text-amber-400 font-medium";
-                summaryEl.innerText = `Packed ${packedCount} of ${totalUnitsCount} units (${pVol.toFixed(2)} CBM). ${packedResult.unpackedBoxes.length} units exceeded container capacity.`;
-            }
-
-            currentStepIndex = 0;
-            updateStepView();
-        }
-
-        // --- Three.js 3D Box Generation ---
         function initVisualMeshes() {
             boxesMeshGroup.clear();
             allBoxMeshes = [];
 
             if (!packedResult || packedResult.packedBoxes.length === 0) return;
 
-            // Map each box ID to its loading step index in O(N) time
-            const stepMap = new Map();
-            packedResult.steps.forEach((stepArr, sIdx) => {
-                stepArr.forEach(b => stepMap.set(b.id, sIdx));
-            });
-
-            // Shared edge material for crisp carton outlines
-            const edgeMat = new THREE.LineBasicMaterial({ color: 0x0f172a, transparent: true, opacity: 0.45 });
-
             packedResult.packedBoxes.forEach((box) => {
-                const bL = box.l / 100;
-                const bW = box.w / 100;
-                const bH = box.h / 100;
+                const { geom, edgeGeom } = getBoxGeometry(box.l, box.h, box.w);
+                const mats = getBoxMaterials(box.color);
 
-                const geom = new THREE.BoxGeometry(bL, bH, bW);
-                const mat = new THREE.MeshStandardMaterial({
-                    color: box.color || 0x4f46e5,
-                    roughness: 0.45,
-                    metalness: 0.08
-                });
-
-                const mesh = new THREE.Mesh(geom, mat);
+                const mesh = new THREE.Mesh(geom, mats.normal);
                 mesh.position.set(
-                    (box.x / 100) + (bL / 2),
-                    (box.y / 100) + (bH / 2),
-                    (box.z / 100) + (bW / 2)
+                    (box.x + box.l / 2) / 100,
+                    (box.y + box.h / 2) / 100,
+                    (box.z + box.w / 2) / 100
                 );
 
-                const edges = new THREE.EdgesGeometry(geom);
-                const wireframe = new THREE.LineSegments(edges, edgeMat);
+                const wireframe = new THREE.LineSegments(edgeGeom, normalEdgeMat);
                 mesh.add(wireframe);
 
                 mesh.userData = {
-                    stepIndex: stepMap.get(box.id) || 0,
+                    orderNum: box.orderNum,
+                    stepIndex: 1,
                     boxName: box.name,
+                    color: box.color,
                     l: box.l,
                     w: box.w,
                     h: box.h,
                     x: box.x,
                     y: box.y,
-                    z: box.z
+                    z: box.z,
+                    wireframe: wireframe,
+                    normalMat: mats.normal,
+                    highlightMat: mats.highlight
                 };
+
                 boxesMeshGroup.add(mesh);
                 allBoxMeshes.push(mesh);
             });
-
-            showFullContainer();
         }
 
-        function getStepIndexOfBox(targetBox) {
-            for (let s = 0; s < packedResult.steps.length; s++) {
-                if (packedResult.steps[s].some(b => b.id === targetBox.id && b.x === targetBox.x && b.y === targetBox.y)) {
-                    return s;
-                }
+        // =========================================================================
+        // 7. CUSTOM STEP MODE / BATCH SIZE REBUILDER (INSTANT, NO RE-PACKING)
+        // =========================================================================
+        function onStepModeChange() {
+            const mode = document.getElementById('step-mode-select').value;
+            const batchWrap = document.getElementById('batch-size-wrap');
+            const batchInput = document.getElementById('batch-size-input');
+
+            if (mode === 'single') {
+                batchWrap.classList.add('opacity-40', 'pointer-events-none');
+                batchInput.value = 1;
+            } else if (mode === 'batch') {
+                batchWrap.classList.remove('opacity-40', 'pointer-events-none');
+                if (parseInt(batchInput.value, 10) <= 1) batchInput.value = 10;
+            } else {
+                batchWrap.classList.add('opacity-40', 'pointer-events-none');
             }
-            return 0;
+
+            if (packedResult) {
+                stopPlayback();
+                rebuildLoadingSteps(false);
+            }
         }
 
-        // --- Step-by-Step Playback Functions ---
-        function updateStepView() {
+        function onBatchSizeInput() {
+            if (!packedResult) return;
+            const mode = document.getElementById('step-mode-select').value;
+            if (mode !== 'batch') return;
+            stopPlayback();
+            rebuildLoadingSteps(false);
+        }
+
+        function rebuildLoadingSteps(showFullAfter = false) {
+            if (!packedResult || packedResult.packedBoxes.length === 0) return;
+
+            const mode = document.getElementById('step-mode-select').value;
+            const boxes = packedResult.packedBoxes;
+            const steps = [];
+
+            if (mode === 'single') {
+                // Strict 1 carton per step
+                for (let i = 0; i < boxes.length; i++) {
+                    steps.push([boxes[i]]);
+                }
+            } else if (mode === 'batch') {
+                // Custom N cartons per step
+                let n = parseInt(document.getElementById('batch-size-input').value, 10);
+                if (isNaN(n) || n < 1) n = 1;
+                for (let i = 0; i < boxes.length; i += n) {
+                    steps.push(boxes.slice(i, i + n));
+                }
+            } else {
+                // Auto (Wall / Layer grouping along 60cm X-depth slices)
+                let currentBatch = [];
+                let currentWall = Math.floor(boxes[0].x / 60);
+                for (let i = 0; i < boxes.length; i++) {
+                    const boxWall = Math.floor(boxes[i].x / 60);
+                    if (boxWall !== currentWall || currentBatch.length >= 35) {
+                        if (currentBatch.length > 0) {
+                            steps.push(currentBatch);
+                            currentBatch = [];
+                        }
+                        currentWall = boxWall;
+                    }
+                    currentBatch.push(boxes[i]);
+                }
+                if (currentBatch.length > 0) steps.push(currentBatch);
+            }
+
+            packedResult.steps = steps;
+
+            // Map each box mesh to its 1-based stepIndex in O(N)
+            const orderToStep = new Int32Array(boxes.length + 1);
+            steps.forEach((stepArr, idx) => {
+                const stepNum = idx + 1;
+                for (let j = 0; j < stepArr.length; j++) {
+                    orderToStep[stepArr[j].orderNum] = stepNum;
+                }
+            });
+
+            for (let i = 0; i < allBoxMeshes.length; i++) {
+                const mesh = allBoxMeshes[i];
+                mesh.userData.stepIndex = orderToStep[mesh.userData.orderNum];
+            }
+
+            // Update timeline slider bounds (0 to totalSteps)
+            const slider = document.getElementById('step-slider');
+            slider.min = 0;
+            slider.max = steps.length;
+            document.getElementById('slider-max-label').innerText = steps.length;
+
+            if (showFullAfter) {
+                currentStepIndex = steps.length;
+                applyStepVisuals(false);
+            } else {
+                // Keep proportional or clamp current step
+                currentStepIndex = Math.min(Math.max(1, currentStepIndex), steps.length);
+                applyStepVisuals(true);
+            }
+        }
+
+        // =========================================================================
+        // 8. STATS PANEL & STEP PLAYBACK / HIGHLIGHTING
+        // =========================================================================
+        function updateStatsUI() {
+            if (!packedResult) return;
+
+            const cVol = packedResult.totalVolume;
+            const pVol = packedResult.packedVolume;
+            const eff = Math.min(100, (pVol / cVol) * 100);
+
+            document.getElementById('stat-container-vol').innerText = `${cVol.toFixed(2)} CBM`;
+            document.getElementById('stat-packed-vol').innerText = `${pVol.toFixed(2)} CBM`;
+            document.getElementById('stat-efficiency').innerText = `${eff.toFixed(1)}%`;
+            document.getElementById('efficiency-bar').style.width = `${eff.toFixed(1)}%`;
+
+            const packedCount = packedResult.packedBoxes.length;
+            const totalUnits = packedCount + packedResult.unpackedBoxes.length;
+            document.getElementById('stat-packed-units').innerText = `${packedCount} / ${totalUnits}`;
+
+            const summaryEl = document.getElementById('packing-summary-text');
+            if (packedResult.unpackedBoxes.length === 0) {
+                summaryEl.className = "text-[11px] text-emerald-400 font-medium leading-snug";
+                summaryEl.innerText = `✓ 100% Fit! All ${packedCount} cartons (${pVol.toFixed(2)} CBM) fit inside ${packedResult.containerSpec.name}.`;
+            } else {
+                summaryEl.className = "text-[11px] text-amber-400 font-medium leading-snug";
+                summaryEl.innerText = `Packed ${packedCount} of ${totalUnits} cartons (${pVol.toFixed(2)} CBM). ${packedResult.unpackedBoxes.length} cartons could not fit.`;
+            }
+        }
+
+        /**
+         * Updates 3D box visibility, highlights cartons in the current active step,
+         * and updates the step instruction banner & timeline slider.
+         */
+        function applyStepVisuals(highlightActiveStep = true) {
             if (!packedResult || packedResult.steps.length === 0) return;
 
             const totalSteps = packedResult.steps.length;
-            if (currentStepIndex >= totalSteps) currentStepIndex = totalSteps - 1;
-            if (currentStepIndex < 0) currentStepIndex = 0;
+            const totalCartons = packedResult.packedBoxes.length;
+            currentStepIndex = Math.max(0, Math.min(currentStepIndex, totalSteps));
 
-            document.getElementById('step-instruction-title').innerText = `Loading Step ${currentStepIndex + 1} of ${totalSteps}`;
-            
-            const currentBatch = packedResult.steps[currentStepIndex];
-            const summaryNames = {};
-            currentBatch.forEach(b => {
-                summaryNames[b.name] = (summaryNames[b.name] || 0) + 1;
-            });
+            document.getElementById('step-slider').value = currentStepIndex;
 
-            let descList = Object.entries(summaryNames).map(([name, count]) => `${count}x ${name}`).join(', ');
-            document.getElementById('step-instruction-desc').innerText = `Place: ${descList}`;
-            document.getElementById('canvas-status-label').innerText = `Step ${currentStepIndex + 1} / ${totalSteps}`;
-
-            allBoxMeshes.forEach(mesh => {
+            // Update 3D visibility & active-step glowing highlight
+            for (let i = 0; i < allBoxMeshes.length; i++) {
+                const mesh = allBoxMeshes[i];
                 const sIdx = mesh.userData.stepIndex;
+
                 if (sIdx <= currentStepIndex) {
                     mesh.visible = true;
+                    if (highlightActiveStep && sIdx === currentStepIndex) {
+                        mesh.material = mesh.userData.highlightMat;
+                        mesh.userData.wireframe.material = highlightEdgeMat;
+                    } else {
+                        mesh.material = mesh.userData.normalMat;
+                        mesh.userData.wireframe.material = normalEdgeMat;
+                    }
                 } else {
                     mesh.visible = false;
                 }
+            }
+
+            const titleEl = document.getElementById('step-instruction-title');
+            const descEl = document.getElementById('step-instruction-desc');
+            const statusEl = document.getElementById('canvas-status-label');
+
+            if (currentStepIndex === 0) {
+                titleEl.innerText = `Step 0 of ${totalSteps} (0 / ${totalCartons} Cartons)`;
+                descEl.innerText = `Empty ${packedResult.containerSpec.name} — Press Next or Play to begin loading from the Back Wall.`;
+                statusEl.innerText = `Empty Container (Step 0 / ${totalSteps})`;
+                return;
+            }
+
+            const activeBatch = packedResult.steps[currentStepIndex - 1];
+            const firstNum = activeBatch[0].orderNum;
+            const lastNum = activeBatch[activeBatch.length - 1].orderNum;
+            const rangeText = firstNum === lastNum
+                ? `Carton ${firstNum} / ${totalCartons}`
+                : `Cartons ${firstNum}–${lastNum} / ${totalCartons}`;
+
+            // Group active step items by SKU + Placed Dimensions for clear warehouse instructions
+            const grouped = new Map();
+            activeBatch.forEach(b => {
+                const key = `${b.name}__${b.l}x${b.w}x${b.h}`;
+                if (!grouped.has(key)) {
+                    grouped.set(key, { name: b.name, dims: `${b.l}×${b.w}×${b.h} cm`, count: 0 });
+                }
+                grouped.get(key).count++;
             });
+
+            const descParts = [];
+            grouped.forEach(v => descParts.push(`${v.count}x ${v.name} [${v.dims}]`));
+
+            if (!highlightActiveStep && currentStepIndex === totalSteps) {
+                titleEl.innerText = `Full Container View (${totalCartons} Cartons • ${totalSteps} Steps)`;
+                descEl.innerText = `All ${totalCartons} packed cartons shown. Use Prev, Next, or the Timeline Slider to inspect individual steps.`;
+                statusEl.innerText = `Full Container (${totalCartons} cartons)`;
+            } else {
+                titleEl.innerText = `Step ${currentStepIndex} of ${totalSteps} (${rangeText})`;
+                descEl.innerText = `Load: ${descParts.join(', ')}`;
+                statusEl.innerText = `Step ${currentStepIndex} / ${totalSteps} (${lastNum}/${totalCartons} cartons)`;
+            }
         }
 
-        function stepNext() {
-            if (!packedResult || packedResult.steps.length === 0) return;
-            if (currentStepIndex < packedResult.steps.length - 1) {
-                currentStepIndex++;
-                updateStepView();
-            } else {
-                stopPlayback();
-            }
+        function onSliderScrub(val) {
+            if (!packedResult) return;
+            stopPlayback();
+            currentStepIndex = parseInt(val, 10);
+            applyStepVisuals(true);
+        }
+
+        function stepReset() {
+            if (!packedResult) return;
+            stopPlayback();
+            currentStepIndex = 0;
+            applyStepVisuals(true);
         }
 
         function stepPrev() {
-            if (!packedResult || packedResult.steps.length === 0) return;
+            if (!packedResult) return;
+            stopPlayback();
             if (currentStepIndex > 0) {
                 currentStepIndex--;
-                updateStepView();
+                applyStepVisuals(true);
             }
         }
 
-        function stepFirst() {
-            currentStepIndex = 0;
-            updateStepView();
+        function stepNext() {
+            if (!packedResult) return;
+            stopPlayback();
+            if (currentStepIndex < packedResult.steps.length) {
+                currentStepIndex++;
+                applyStepVisuals(true);
+            }
         }
 
         function showFullContainer() {
-            stopPlayback();
             if (!packedResult || packedResult.steps.length === 0) return;
-            currentStepIndex = packedResult.steps.length - 1;
-            updateStepView();
-            document.getElementById('canvas-status-label').innerText = `Full Container View (${packedResult.packedBoxes.length} items)`;
+            stopPlayback();
+            currentStepIndex = packedResult.steps.length;
+            applyStepVisuals(false);
+        }
+
+        function getPlayDelayMs() {
+            const speed = parseFloat(document.getElementById('speed-select').value) || 1;
+            const mode = document.getElementById('step-mode-select').value;
+            // Base delay: faster default for 1-by-1 mode so 1,000 cartons animate smoothly
+            const baseMs = mode === 'single' ? 350 : 900;
+            return Math.max(30, Math.round(baseMs / speed));
+        }
+
+        function onSpeedChange() {
+            if (isPlaying) {
+                clearInterval(playTimer);
+                playTimer = setInterval(advancePlaybackTick, getPlayDelayMs());
+            }
         }
 
         function togglePlayPause() {
             if (!packedResult || packedResult.steps.length === 0) {
-                showModal("Notice", "Please run packing algorithm first.");
+                showModal("Notice", "Upload a CSV and run packing first to play the loading sequence.");
                 return;
             }
-
-            if (isPlaying) {
-                stopPlayback();
-            } else {
-                startPlayback();
-            }
+            if (isPlaying) stopPlayback();
+            else startPlayback();
         }
 
         function startPlayback() {
-            if (currentStepIndex >= packedResult.steps.length - 1) {
+            if (currentStepIndex >= packedResult.steps.length) {
                 currentStepIndex = 0;
+                applyStepVisuals(true);
             }
             isPlaying = true;
             document.getElementById('play-icon').className = "fa-solid fa-pause";
-            document.getElementById('play-text').innerText = "Pause Sequence";
+            document.getElementById('play-text').innerText = "Pause";
+            playTimer = setInterval(advancePlaybackTick, getPlayDelayMs());
+        }
 
-            playInterval = setInterval(() => {
-                if (currentStepIndex < packedResult.steps.length - 1) {
-                    currentStepIndex++;
-                    updateStepView();
-                } else {
-                    stopPlayback();
-                }
-            }, 1500);
+        function advancePlaybackTick() {
+            if (!packedResult || currentStepIndex >= packedResult.steps.length) {
+                stopPlayback();
+                return;
+            }
+            currentStepIndex++;
+            applyStepVisuals(true);
         }
 
         function stopPlayback() {
             isPlaying = false;
-            if (playInterval) clearInterval(playInterval);
+            if (playTimer) {
+                clearInterval(playTimer);
+                playTimer = null;
+            }
             document.getElementById('play-icon').className = "fa-solid fa-play";
-            document.getElementById('play-text').innerText = "Play Sequence";
+            document.getElementById('play-text').innerText = "Play";
         }
 
-        // --- Download Warehouse Tally Sheet CSV ---
+        // =========================================================================
+        // 9. SYNCED WAREHOUSE TALLY SHEET CSV EXPORT
+        // =========================================================================
+        function describeLoadPosition(box, cL, cH) {
+            const xRatio = (box.x + box.l / 2) / cL;
+            const yRatio = (box.y + box.h / 2) / cH;
+
+            const depthZone = xRatio < 0.33 ? 'Back' : (xRatio < 0.67 ? 'Mid' : 'Front');
+            const heightZone = yRatio < 0.33 ? 'Floor' : (yRatio < 0.67 ? 'Mid-Level' : 'Top');
+            return `${depthZone} / ${heightZone}`;
+        }
+
         function downloadTallySheet() {
             if (!packedResult || packedResult.steps.length === 0) {
-                showModal("Notice", "No packed cargo data available to export.");
+                showModal("No Packed Data", "Please upload a CSV file and run packing before exporting the Tally Sheet.");
                 return;
             }
 
-            let csv = "Loading Step,Item Name,Length (cm),Width (cm),Height (cm),X (cm),Y (cm),Z (cm)\n";
-            packedResult.steps.forEach((step, sIdx) => {
-                step.forEach(box => {
-                    csv += `Step ${sIdx + 1},"${box.name}",${box.l},${box.w},${box.h},${box.x},${box.y},${box.z}\n`;
+            const mode = document.getElementById('step-mode-select').value;
+            const modeLabel = mode === 'single'
+                ? 'CartonByCarton'
+                : (mode === 'batch' ? `Batch_${document.getElementById('batch-size-input').value}` : 'AutoWall');
+
+            let csv = "Step #,Carton Range,Item Name,Dimensions (cm),Qty in Step,Load Position,Cumulative Cartons\n";
+            let cumulative = 0;
+
+            packedResult.steps.forEach((stepArr, sIdx) => {
+                const stepNum = sIdx + 1;
+                const firstNum = stepArr[0].orderNum;
+                const lastNum = stepArr[stepArr.length - 1].orderNum;
+                const rangeStr = firstNum === lastNum ? `#${firstNum}` : `#${firstNum}-#${lastNum}`;
+
+                // Group items within this step by SKU + Dimensions + Load Position
+                const groups = new Map();
+                stepArr.forEach(box => {
+                    const pos = describeLoadPosition(box, packedResult.cL, packedResult.cH);
+                    const dims = `${box.l}x${box.w}x${box.h}`;
+                    const key = `${box.name}|${dims}|${pos}`;
+                    if (!groups.has(key)) {
+                        groups.set(key, { name: box.name, dims, pos, qty: 0 });
+                    }
+                    groups.get(key).qty++;
+                });
+
+                groups.forEach(g => {
+                    cumulative += g.qty;
+                    const safeName = g.name.replace(/"/g, '""');
+                    csv += `Step ${stepNum},"${rangeStr}","${safeName}","${g.dims}",${g.qty},"${g.pos}",${cumulative}\n`;
                 });
             });
 
@@ -1024,10 +1523,11 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = "warehouse_loading_tally_sheet.csv";
+            a.download = `CargoPack_TallySheet_${modeLabel}.csv`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
+            URL.revokeObjectURL(url);
         }
     </script>
 </body>
